@@ -70,6 +70,10 @@ header.top h1 { font-family: var(--f-display); font-weight: 400; font-size: 30px
 header.top h1 { display: flex; align-items: center; gap: 10px; align-self: center; }
 header.top .logo { width: 46px; height: 46px; flex: none; margin: -6px 0 -6px -4px; }
 header.top p { margin: 0; color: var(--muted); max-width: 60ch; }
+header.top .support { margin-left: auto; font-size: 14px; color: var(--muted); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; white-space: nowrap; }
+header.top .support::before { content: "♥"; color: var(--mR); margin-right: 6px; }
+header.top .support:hover { color: var(--ink); border-color: var(--muted); }
+@media (max-width: 700px) { header.top .support { margin-left: 0; } }
 
 .layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 24px; align-items: start; }
 @media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } }
@@ -403,6 +407,7 @@ footer { margin-top: 36px; padding-top: 14px; border-top: 1px solid var(--line);
 <polygon points="162.5,204.8 239.4,249.2 239.4,279.2 162.5,234.8" fill="#ffffff" opacity=".28"/>
 </g></svg>Shoebox Cube</h1>
     <p>Turn the cards you already own into a balanced, singleton draft cube built around the themes your collection actually has.</p>
+    <a class="support" href="https://ko-fi.com/shoeboxcube" target="_blank" rel="noopener">Support this tool</a>
   </header>
 
   <div class="layout">
@@ -487,6 +492,7 @@ footer { margin-top: 36px; padding-top: 14px; border-top: 1px solid var(--line);
     <div>Shoebox Cube is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.</div>
     <div>Card data from <a href="https://scryfall.com" target="_blank" rel="noopener">Scryfall</a>, which does not endorse this tool. Card popularity comes from public cube lists on <a href="https://cubecobra.com" target="_blank" rel="noopener">CubeCobra</a>. Draft win rates from <a href="https://www.17lands.com/public_datasets" target="_blank" rel="noopener">17lands</a> public datasets (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="license noopener">CC BY 4.0</a>), converted by this site into per-set rankings. Combos from <a href="https://commanderspellbook.com" target="_blank" rel="noopener">Commander Spellbook</a>. Building approach follows Lucky Paper's <a href="https://luckypaper.co/articles/building-a-cube-from-a-collection/" target="_blank" rel="noopener">Building a Cube from a Collection</a>. <span id="built"></span></div>
     <div>Your collection never leaves your browser. Some buy links are affiliate links, and purchases through them can earn this site a commission at no cost to you.</div>
+    <div>Shoebox Cube is free. If it saved you an evening of sorting cards, you can <a href="https://ko-fi.com/shoeboxcube" target="_blank" rel="noopener">support it on Ko-fi</a>.</div>
     <div>© 2026 Shoebox Cube. All rights reserved. The site's code and design may not be copied or redistributed without permission.</div>
   </footer>
 </div>
