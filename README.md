@@ -1,5 +1,7 @@
 # Shoebox Cube
 
+https://shoeboxcube.com
+
 Build a balanced, singleton Magic: The Gathering draft cube from the cards you already own.
 
 Everything runs in your browser; your collection never leaves it.
