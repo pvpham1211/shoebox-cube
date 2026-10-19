@@ -1,0 +1,2144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect x=%224%22 y=%229%22 width=%2224%22 height=%2218%22 rx=%223%22 fill=%22%233b3a8f%22/%3E%3Crect x=%229%22 y=%224%22 width=%2214%22 height=%229%22 rx=%221.5%22 fill=%22%23d8cfa0%22/%3E%3C/svg%3E">
+<title>Shoebox Cube</title>
+<meta name="description" content="Build a balanced, singleton draft cube from the cards you already own.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a workbench. Left rail = the shoebox (collection + settings), right = the cube on the table, sorted into color piles. */
+:root {
+  --bg: #f3f2ee;
+  --panel: #fbfaf7;
+  --ink: #1d1c24;
+  --muted: #625f6e;
+  --line: #dcd9d2;
+  --accent: #3b3a8f;
+  --accent-ink: #ffffff;
+  --accent-soft: #e6e5f4;
+  --good: #2f7d4f;
+  --warn: #a8641a;
+  --bad: #b03a32;
+  --star: #b8862a;
+  /* pile colors (pip and stripe), not the brand accent */
+  --mW: #d8cc9f; --mU: #3f78b8; --mB: #4b4250; --mR: #c34a33; --mG: #3f8650; --mM: #b8902f; --mC: #9a97a3; --mL: #8a7b62;
+  --pip-ink: #ffffff; --pip-ink-W: #3a3420;
+  --f-display: "Young Serif", Georgia, "Times New Roman", serif;
+  --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15151b; --panel: #1d1d25; --ink: #ecebf2; --muted: #a3a1b0; --line: #34333f;
+    --accent: #a9a7f5; --accent-ink: #16152b; --accent-soft: #2b2a48;
+    --good: #6cc790; --warn: #e3a356; --bad: #ee7d74; --star: #e8bd5c;
+    --mW: #e6dcb1; --mU: #6aa1de; --mB: #8f8399; --mR: #e2725b; --mG: #6db57d; --mM: #d8b257; --mC: #8e8b99; --mL: #b3a284;
+    --pip-ink: #121218; --pip-ink-W: #121218;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15151b; --panel: #1d1d25; --ink: #ecebf2; --muted: #a3a1b0; --line: #34333f;
+  --accent: #a9a7f5; --accent-ink: #16152b; --accent-soft: #2b2a48;
+  --good: #6cc790; --warn: #e3a356; --bad: #ee7d74; --star: #e8bd5c;
+  --mW: #e6dcb1; --mU: #6aa1de; --mB: #8f8399; --mR: #e2725b; --mG: #6db57d; --mM: #d8b257; --mC: #8e8b99; --mL: #b3a284;
+  --pip-ink: #121218; --pip-ink-W: #121218;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+a { color: var(--accent); }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.wrap { max-width: 1380px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px; }
+header.top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; padding-bottom: 16px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+header.top h1 { font-family: var(--f-display); font-weight: 400; font-size: 30px; margin: 0; letter-spacing: -0.01em; }
+header.top p { margin: 0; color: var(--muted); max-width: 60ch; }
+
+.layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+.rail { display: grid; gap: 16px; }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; display: grid; gap: 10px; min-width: 0; }
+.label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; }
+h2 { font-family: var(--f-display); font-weight: 400; font-size: 20px; margin: 0; text-wrap: balance; }
+h3 { font-size: 15px; margin: 0; }
+p { margin: 0; }
+
+.drop { border: 1.5px dashed var(--line); border-radius: var(--r); padding: 14px; text-align: center; color: var(--muted); cursor: pointer; transition: border-color .15s, background .15s; }
+.drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+.drop strong { color: var(--ink); }
+.src { font-size: 13px; color: var(--muted); }
+.src b { color: var(--ink); }
+details summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+textarea { width: 100%; min-height: 110px; border: 1px solid var(--line); background: var(--bg); border-radius: var(--r); padding: 8px; font-family: var(--f-mono); font-size: 12px; resize: vertical; }
+input[type=search], select { width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: var(--r); padding: 7px 9px; font-size: 14px; }
+
+.field { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; font-size: 14px; }
+.field input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
+.field output { font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: 13px; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.seg button { flex: 1; border: 0; background: transparent; padding: 6px 0; cursor: pointer; font-size: 13px; }
+.seg.mono button { font-family: var(--f-mono); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.hint { font-size: 12px; color: var(--muted); }
+.check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
+.check input { margin-top: 3px; accent-color: var(--accent); }
+.split { font-size: 13px; color: var(--muted); font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+.btn { border: 1px solid var(--line); background: var(--panel); border-radius: var(--r); padding: 7px 12px; cursor: pointer; font-size: 14px; text-decoration: none; color: var(--ink); display: inline-block; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.small { padding: 3px 8px; font-size: 13px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* summary */
+.summary { display: grid; gap: 14px; margin-bottom: 18px; }
+.sumhead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 10px; }
+.sumhead .big { font-family: var(--f-display); font-size: 26px; }
+.sumhead .big small { font-family: var(--f-body); font-size: 14px; color: var(--muted); }
+.notices { display: grid; gap: 6px; }
+.notice { font-size: 14px; padding: 8px 12px; border-radius: var(--r); background: var(--accent-soft); }
+.notice.warn { background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.notice button { border: 0; background: none; color: var(--accent); text-decoration: underline; cursor: pointer; padding: 0; font-size: 14px; }
+
+.piles { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; }
+@media (max-width: 700px) { .piles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.pile { border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); padding: 8px 8px 6px; border-top: 4px solid var(--pc); cursor: pointer; text-align: left; display: grid; gap: 2px; }
+.pile[aria-selected="true"] { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pile .n { font-family: var(--f-mono); font-size: 18px; font-variant-numeric: tabular-nums; }
+.pile .n small { font-size: 12px; color: var(--muted); }
+.pile .nm { font-size: 12px; color: var(--muted); }
+.pile .short { font-size: 11px; color: var(--warn); }
+
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 6px 0 14px; overflow-x: auto; }
+.tabs button { border: 0; background: none; padding: 8px 12px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; font-size: 14px; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 700; }
+
+/* pile view */
+.pileview { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px; }
+@media (max-width: 1100px) { .pileview { grid-template-columns: minmax(0, 1fr); } }
+.stats { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); }
+.stats b { color: var(--ink); font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-weight: 600; }
+.stats .off b { color: var(--warn); }
+.curve { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; align-items: end; height: 70px; margin-top: 26px; }
+.curve div { background: var(--pc); border-radius: 3px 3px 0 0; position: relative; min-height: 2px; }
+.curve div span { position: absolute; top: -17px; left: 0; right: 0; text-align: center; font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
+.curvelbl { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; font-family: var(--f-mono); font-size: 11px; color: var(--muted); text-align: center; }
+.group { margin-top: 12px; }
+.group h4 { margin: 0 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); display: flex; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 3px; }
+.cards { list-style: none; margin: 0; padding: 0; }
+.card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 6px; align-items: center; padding: 3px 4px; border-radius: 4px; font-size: 14px; }
+.card:hover { background: var(--accent-soft); }
+.card .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card .nm a { color: var(--ink); text-decoration: none; }
+.card .nm a:hover { text-decoration: underline; }
+.card .tags { display: flex; gap: 3px; }
+.tag { font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; color: var(--muted); white-space: nowrap; text-decoration: none; }
+.tag.hot { border-color: var(--warn); color: var(--warn); }
+.x { border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 15px; line-height: 1; padding: 2px 4px; border-radius: 3px; }
+.x:hover { color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
+.x.add:hover { color: var(--good); background: color-mix(in srgb, var(--good) 12%, transparent); }
+.star { border: 0; background: none; cursor: pointer; color: var(--line); font-size: 15px; line-height: 1; padding: 2px; }
+.star:hover { color: var(--star); }
+.star[aria-pressed="true"] { color: var(--star); }
+.cost { display: inline-flex; gap: 1px; margin-right: 6px; vertical-align: -2px; }
+.pip { width: 15px; height: 15px; border-radius: 50%; display: inline-grid; place-items: center; font-family: var(--f-mono); font-size: 9px; font-weight: 600; color: var(--pip-ink); background: var(--mC); }
+.pip.W { background: var(--mW); color: var(--pip-ink-W); } .pip.U { background: var(--mU); } .pip.B { background: var(--mB); } .pip.R { background: var(--mR); } .pip.G { background: var(--mG); }
+.pip.h { background: linear-gradient(135deg, var(--a) 50%, var(--b) 50%); }
+
+.side { display: grid; gap: 14px; align-content: start; }
+.why { font-size: 12px; color: var(--muted); }
+.empty { color: var(--muted); font-size: 14px; padding: 6px 0; }
+.results { max-height: 260px; overflow-y: auto; }
+.binderlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 2px 10px; max-height: 220px; overflow-y: auto; font-size: 13px; }
+.binderlist .check { font-size: 13px; }
+
+/* themes */
+.arch { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.archcard { border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); padding: 10px 12px; display: grid; gap: 7px; align-content: start; min-width: 0; }
+.archcard .hd { display: flex; align-items: center; gap: 8px; }
+.duo { display: inline-flex; }
+.duo i { width: 14px; height: 14px; border-radius: 50%; display: inline-block; border: 1.5px solid var(--panel); }
+.duo i + i { margin-left: -5px; }
+.meter { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.meter div { height: 100%; background: var(--accent); }
+.meter.lo div { background: var(--warn); }
+.archcard .ex { font-size: 12px; color: var(--muted); }
+.flag { font-size: 12px; color: var(--warn); }
+
+table.t { border-collapse: collapse; width: 100%; font-size: 14px; }
+table.t th, table.t td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; font-variant-numeric: tabular-nums; }
+table.t th:first-child, table.t td:first-child { text-align: left; }
+table.t th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 700; }
+.scroll { overflow-x: auto; }
+
+.price { font-family: var(--f-mono); font-size: 13px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.aff { font-size: 12px; color: var(--muted); }
+
+pre.out { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 10px; font-family: var(--f-mono); font-size: 12px; max-height: 320px; overflow: auto; white-space: pre; margin: 0; }
+ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+
+/* pull list */
+.pull { columns: 2 300px; column-gap: 24px; }
+.pull section { break-inside: avoid; margin-bottom: 14px; }
+.pull h4 { margin: 0 0 4px; font-size: 13px; display: flex; gap: 8px; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 3px; }
+.pull h5 { margin: 6px 0 2px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.pull label { display: grid; grid-template-columns: auto 2.2em minmax(0, 1fr) auto; gap: 6px; align-items: center; font-size: 14px; padding: 1px 0; cursor: pointer; }
+.pull label input { accent-color: var(--accent); margin: 0; }
+.pull .mv { font-family: var(--f-mono); font-size: 12px; color: var(--muted); text-align: right; }
+.pull .set { font-family: var(--f-mono); font-size: 11px; color: var(--muted); text-transform: uppercase; }
+.pull label:has(input:checked) .pn { text-decoration: line-through; color: var(--muted); }
+
+.pack { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px; }
+.pack div { border: 1px solid var(--line); border-left: 4px solid var(--pc); border-radius: 4px; padding: 6px 8px; font-size: 13px; background: var(--panel); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* question flow */
+.layout.focus { grid-template-columns: minmax(0, 1fr); }
+.layout.focus .rail { display: none; }
+[hidden] { display: none !important; }
+#wizard { max-width: 860px; margin: 0 auto; display: grid; gap: 18px; padding-block: 8px 24px; }
+.wiz-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: baseline; font-size: 13px; color: var(--muted); }
+.wiz-top button { border: 0; background: none; color: var(--accent); text-decoration: underline; cursor: pointer; padding: 0; font-size: 13px; }
+.steps-dots { display: flex; gap: 6px; }
+.steps-dots i { width: 28px; height: 4px; border-radius: 2px; background: var(--line); }
+.steps-dots i.on { background: var(--accent); }
+.wiz-q { font-family: var(--f-display); font-weight: 400; font-size: clamp(24px, 4vw, 32px); margin: 0; text-wrap: balance; }
+.wiz-sub { color: var(--muted); max-width: 62ch; }
+.choices { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.choices.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 560px) { .choices.two { grid-template-columns: minmax(0, 1fr); } }
+.choice { text-align: left; border: 1px solid var(--line); background: var(--panel); border-radius: var(--r); padding: 14px 16px; cursor: pointer; display: grid; gap: 4px; align-content: start; }
+.choice:hover { border-color: var(--accent); }
+.choice[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.choice b { font-size: 16px; }
+.choice span { font-size: 13px; color: var(--muted); }
+.choice small { font-family: var(--f-mono); font-size: 12px; color: var(--accent); }
+.wiz-nav { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.answers { display: grid; gap: 2px; font-size: 14px; }
+.answers div { display: flex; justify-content: space-between; gap: 10px; }
+.answers span { color: var(--muted); }
+.fine summary { font-size: 14px; color: var(--ink); }
+.fine-body { display: grid; gap: 10px; margin-top: 10px; }
+
+/* theme picker */
+.picker { display: grid; gap: 14px; }
+.pick-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); align-items: start; }
+.sec { border: 1px solid var(--line); border-top: 4px solid var(--pc); border-radius: var(--r); background: var(--panel); padding: 10px 12px; display: grid; gap: 4px; min-width: 0; }
+.sec h3 { display: flex; justify-content: space-between; align-items: baseline; }
+.sec h3 span { font-size: 12px; color: var(--muted); font-weight: 400; }
+.trow { display: grid; grid-template-columns: minmax(0, 1fr) 64px auto; gap: 8px; align-items: center; padding: 3px 0; border-top: 1px solid var(--line); }
+.trow:first-of-type { border-top: 0; }
+.tname { border: 0; background: none; text-align: left; cursor: pointer; padding: 2px 0; font-size: 14px; min-width: 0; display: flex; gap: 6px; align-items: baseline; }
+.tname:hover .tt { text-decoration: underline; }
+.tname .n { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.tname .thin { font-size: 11px; color: var(--warn); }
+.tbar { height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.tbar div { height: 100%; background: var(--pc); }
+.thumbs { display: flex; gap: 2px; }
+.thumbs button { border: 1px solid transparent; background: none; cursor: pointer; border-radius: 4px; padding: 1px 5px; font-size: 14px; line-height: 1.2; filter: grayscale(1); opacity: .55; }
+.thumbs button:hover { opacity: 1; }
+.thumbs button[aria-pressed="true"] { filter: none; opacity: 1; border-color: var(--line); background: var(--bg); }
+.trow.liked .tt { font-weight: 700; }
+.trow.disliked .tt { text-decoration: line-through; color: var(--muted); }
+.pkg { grid-column: 1 / -1; background: var(--bg); border-radius: 4px; padding: 6px 8px; font-size: 13px; }
+.pkg ul { list-style: none; margin: 0; padding: 0; columns: 2 140px; column-gap: 14px; }
+.pkg li { break-inside: avoid; padding: 1px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pkg .more { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.sticky-go { position: sticky; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: flex-end; }
+.sticky-go .btn { box-shadow: 0 4px 14px color-mix(in srgb, var(--ink) 18%, transparent); }
+
+/* cube views */
+.cubebar { justify-content: space-between; margin-bottom: 14px; gap: 8px 14px; }
+.viewseg button { padding: 6px 14px; font-size: 14px; white-space: nowrap; }
+.cubelist { display: grid; gap: 14px 18px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); align-items: start; }
+.cubelist section { min-width: 0; border-top: 4px solid var(--pc); padding-top: 6px; }
+.cubelist h4, .cubeimgs h4 { margin: 0 0 6px; font-size: 14px; display: flex; gap: 8px; align-items: center; }
+.cubelist ul { list-style: none; margin: 0; padding: 0; }
+.lrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-radius: 4px; }
+.lrow:hover { background: var(--accent-soft); }
+.lname { border: 0; background: none; text-align: left; cursor: pointer; padding: 3px 4px; font-size: 13.5px; display: flex; align-items: center; min-width: 0; color: var(--ink); }
+.lname span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lname:hover span { text-decoration: underline; }
+.lrow .x { opacity: 0; }
+.lrow:hover .x, .lrow .x:focus-visible { opacity: 1; }
+@media (hover: none) { .lrow .x { opacity: .7; } }
+.cubeimgs { margin-bottom: 22px; }
+.tgroup { display: flex; justify-content: space-between; gap: 8px; margin: 10px 4px 4px 0; font-size: 11.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.cubeimgs .tgroup { justify-content: flex-start; margin: 12px 0 6px; }
+.cubeimgs .tgroup span:last-child, .tgroup span:last-child { font-family: var(--f-mono); font-weight: 400; }
+
+/* compare */
+.cubes { list-style: none; margin: 8px 0 12px; padding: 0; display: grid; gap: 4px; }
+.cubes li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 10px; align-items: center; }
+.cname { font: inherit; font-weight: 600; border: 1px solid transparent; background: none; color: var(--ink); padding: 3px 6px; border-radius: 4px; min-width: 0; }
+.cname:hover, .cname:focus { border-color: var(--line); background: var(--panel); }
+.importrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-bottom: 6px; }
+.importrow input, #cubePasteName, #cubePaste { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); min-width: 0; }
+#cubePaste { width: 100%; box-sizing: border-box; margin: 6px 0; }
+#cmpMore summary { cursor: pointer; font-size: 14px; }
+#cmpMore[open] { margin-bottom: 6px; }
+.cmpbar { gap: 8px; align-items: center; }
+.cmpbar select { width: auto; flex: 1 1 220px; font: inherit; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); max-width: 100%; }
+.cmpgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; align-items: start; }
+.cmpcol h3 { margin: 0; font-size: 17px; }
+.cubelist.one { grid-template-columns: 1fr; margin-top: 8px; }
+.lrow .set { font-size: 12px; color: var(--muted); padding-right: 4px; white-space: nowrap; }
+.lrow .buy { font-size: 12.5px; font-weight: 600; padding: 2px 8px; border-radius: 4px; color: var(--accent); text-decoration: none; border: 1px solid currentColor; margin-right: 2px; }
+.lrow .buy:hover { background: var(--accent-soft); }
+
+/* theme view */
+.panel-wrap { position: fixed; inset: 0; z-index: 30; background: color-mix(in srgb, var(--ink) 45%, transparent); display: grid; place-items: start center; overflow-y: auto;
+  padding: calc(24px + env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)); }
+.panel { background: var(--bg); border-radius: 10px; width: min(1080px, 100%); padding: 18px 20px 22px; display: grid; gap: 16px; box-shadow: 0 20px 60px color-mix(in srgb, var(--ink) 35%, transparent); }
+.panel-head { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; }
+.panel-head h2 { font-size: 24px; display: flex; gap: 10px; align-items: center; }
+.panel-head .stats { margin-top: 2px; }
+.panel .thumbs.big button { font-size: 15px; padding: 6px 12px; filter: none; opacity: 1; border: 1px solid var(--line); background: var(--panel); display: inline-flex; gap: 6px; align-items: center; }
+.panel .thumbs.big button span { font-size: 13px; }
+.panel .thumbs.big button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.panel .thumbs.big { gap: 6px; }
+.panel-close { border: 0; background: none; font-size: 26px; line-height: 1; cursor: pointer; color: var(--muted); padding: 2px 8px; border-radius: 6px; }
+.panel-close:hover { background: var(--panel); color: var(--ink); }
+.shelf h3 { display: flex; gap: 10px; align-items: baseline; margin-bottom: 8px; }
+.shelf h3 span { font-size: 13px; color: var(--muted); font-weight: 400; }
+.tiles { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
+.tiles.small { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 6px; }
+.tile { position: relative; display: grid; gap: 4px; min-width: 0; }
+.tile a { display: block; border-radius: 6px; overflow: hidden; aspect-ratio: 146 / 204; max-width: 100%; background: var(--panel); border: 1px solid var(--line); }
+.tile a:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tile .im { width: 100%; height: 100%; background-repeat: no-repeat; display: block; }
+.tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tile .txt { padding: 8px; font-size: 12px; display: grid; gap: 4px; align-content: start; height: 100%; border-top: 4px solid var(--pc); color: var(--ink); }
+.tile .cap { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+.tile.in .cap { color: var(--ink); font-weight: 700; }
+.tiles.small .cap { font-size: 11px; }
+.zbtn { display: block; width: 100%; padding: 0; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; aspect-ratio: 146 / 204; background: var(--panel); cursor: zoom-in; }
+.zbtn:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tile .tx { position: absolute; top: 4px; right: 32px; width: 24px; height: 24px; border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center; font-size: 15px; line-height: 1;
+  background: color-mix(in srgb, var(--bg) 85%, transparent); color: var(--ink); opacity: 0; transition: opacity .12s; }
+.tile:hover .tx, .tile .tx:focus-visible { opacity: 1; }
+@media (hover: none) { .tile .tx { opacity: .9; } }
+.tiles.small .tx { right: 4px; width: 20px; height: 20px; font-size: 13px; }
+.tile .tx:hover { background: var(--bad); color: #fff; }
+.zoom-wrap { z-index: 40; }
+.zoom { width: min(820px, 100%); position: relative; }
+.zoom > .panel-close { position: absolute; top: 8px; right: 8px; }
+.zoom-grid { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 640px) { .zoom-grid { grid-template-columns: minmax(0, 1fr); } .zoom-img { max-width: 260px; margin: 0 auto; } }
+.zoom-side { display: grid; gap: 8px; justify-items: center; }
+.tile .flip { position: absolute; left: 4px; bottom: 26px; width: 26px; height: 26px; border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center; font-size: 14px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent); color: var(--ink); box-shadow: 0 1px 3px color-mix(in srgb, var(--ink) 25%, transparent); }
+.tiles.small .flip { width: 22px; height: 22px; font-size: 12px; bottom: 22px; }
+.tile .flip:hover { background: var(--accent); color: var(--accent-ink); }
+.zoom-img { border-radius: 12px; overflow: hidden; aspect-ratio: 146 / 204; background: var(--panel); width: 100%; }
+.zoom-img .im, .zoom-img img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.zoom-text { display: grid; gap: 12px; padding-right: 28px; min-width: 0; }
+.face h3 { font-family: var(--f-display); font-weight: 400; font-size: 22px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.face .ztype { color: var(--muted); font-size: 14px; margin: 2px 0 8px; }
+.face p { font-size: 16px; line-height: 1.55; max-width: 60ch; }
+.face + .face { border-top: 1px solid var(--line); padding-top: 10px; }
+.zpt { font-family: var(--f-mono); font-size: 15px; margin-top: 6px; }
+.cost.inl { margin: 0 1px; vertical-align: -3px; }
+.zfacts { margin: 0; padding-left: 18px; font-size: 13px; color: var(--muted); display: grid; gap: 2px; }
+.tile .star { position: absolute; top: 4px; right: 4px; background: color-mix(in srgb, var(--bg) 85%, transparent); border-radius: 50%; width: 24px; height: 24px; display: grid; place-items: center; }
+.tiles.small .star { display: none; }
+.tile .badge { position: absolute; top: 4px; left: 4px; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; background: var(--accent); color: var(--accent-ink); border-radius: 3px; padding: 0 4px; }
+.tiles.small .badge { display: none; }
+
+footer { margin-top: 36px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); display: grid; gap: 4px; }
+.loading { padding: 40px 0; color: var(--muted); }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: var(--r); font-size: 14px; z-index: 60; display: flex; gap: 12px; align-items: center; max-width: calc(100vw - 32px); }
+.toast button { border: 0; background: none; color: var(--bg); font-weight: 700; text-decoration: underline; cursor: pointer; padding: 2px 4px; font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header class="top">
+    <h1>Shoebox Cube</h1>
+    <p>Turn the cards you already own into a balanced, singleton draft cube built around the themes your collection actually has.</p>
+  </header>
+
+  <div class="layout">
+    <aside class="rail">
+      <section class="box" aria-labelledby="h-coll">
+        <h2 id="h-coll">Your collection</h2>
+        <label class="drop" id="drop" for="file">
+          <strong>Drop a collection file</strong><br>
+          <span style="font-size:13px">ManaBox, Moxfield, Deckbox or any CSV with a name column. Plain text lists work too.</span>
+        </label>
+        <input type="file" id="file" accept=".csv,.txt,.tsv,text/csv,text/plain" hidden>
+        <div class="src" id="src">Loading sample collection…</div>
+        <details id="binders" hidden></details>
+        <details>
+          <summary>Or paste a list</summary>
+          <textarea id="paste" placeholder="1 Lightning Bolt&#10;Counterspell&#10;2x Llanowar Elves"></textarea>
+          <div class="row" style="margin-top:6px"><button class="btn small" id="usePaste" type="button">Use this list</button><button class="btn small" id="useSample" type="button">Back to sample</button></div>
+        </details>
+      </section>
+
+      <section class="box" aria-labelledby="h-fav">
+        <h2 id="h-fav">Favorites</h2>
+        <p class="hint">Star the cards you want to play with no matter what. Starred cards always make the cube.</p>
+        <input type="search" id="find" placeholder="Search your collection" autocomplete="off" aria-label="Search your collection">
+        <ul class="cards results" id="findResults"></ul>
+        <div class="src" id="starCount"></div>
+      </section>
+
+      <section class="box" aria-labelledby="h-set">
+        <h2 id="h-set">Your cube</h2>
+        <div class="answers" id="answers"></div>
+        <div class="row"><button class="btn small" id="changeAnswers" type="button">Change answers</button></div>
+        <details class="fine">
+          <summary>Fine-tune</summary>
+          <div class="fine-body">
+            <div>
+              <div class="label" style="margin-bottom:4px">Size</div>
+              <div class="seg mono" id="sizes" role="group" aria-label="Cube size">
+                <button type="button" data-s="180">180</button><button type="button" data-s="360">360</button><button type="button" data-s="450">450</button><button type="button" data-s="540">540</button><button type="button" data-s="720">720</button>
+              </div>
+            </div>
+            <div class="field"><label for="perColor">Cards per color</label><output id="o-perColor"></output><input type="range" id="perColor" min="10" max="90"></div>
+            <div class="field"><label for="perPair">Gold cards per color pair</label><output id="o-perPair"></output><input type="range" id="perPair" min="0" max="10"></div>
+            <div class="field"><label for="lands">Lands</label><output id="o-lands"></output><input type="range" id="lands" min="0" max="80"></div>
+            <div class="split" id="split"></div>
+            <label class="check"><input type="checkbox" id="noCmdr" checked> Skip cards that need a commander</label>
+            <label class="check"><input type="checkbox" id="tri" checked> Include three-color and five-color cards</label>
+            <div class="row"><button class="btn small" id="resetSwaps" type="button">Clear stars and cuts</button></div>
+          </div>
+        </details>
+      </section>
+    </aside>
+
+    <main id="main" aria-live="polite">
+      <div class="loading" id="loading">Loading card data…</div>
+      <section id="wizard" hidden></section>
+      <div id="app" hidden>
+        <div class="summary">
+          <div class="sumhead">
+            <div class="big" id="bigCount"></div>
+            <div class="row"><button class="btn" id="copyList" type="button">Copy list for CubeCobra</button></div>
+          </div>
+          <div class="notices" id="notices"></div>
+          <div class="piles" id="piles" role="tablist" aria-label="Color piles"></div>
+        </div>
+
+        <div class="tabs" role="tablist" aria-label="Views">
+          <button type="button" role="tab" data-v="pile" aria-selected="true">Cube</button>
+          <button type="button" role="tab" data-v="themes">Themes</button>
+          <button type="button" role="tab" data-v="balance">Balance</button>
+          <button type="button" role="tab" data-v="upg">Upgrades</button>
+          <button type="button" role="tab" data-v="pull">Pull list</button>
+          <button type="button" role="tab" data-v="compare">Compare</button>
+          <button type="button" role="tab" data-v="export">Playtest and export</button>
+        </div>
+        <div id="view"></div>
+      </div>
+    </main>
+  </div>
+
+  <footer>
+    <div>Shoebox Cube is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.</div>
+    <div>Card data from <a href="https://scryfall.com" target="_blank" rel="noopener">Scryfall</a>, which does not endorse this tool. Card popularity comes from public cube lists on <a href="https://cubecobra.com" target="_blank" rel="noopener">CubeCobra</a>. Draft win rates from <a href="https://www.17lands.com/public_datasets" target="_blank" rel="noopener">17lands</a> public data. Building approach follows Lucky Paper's <a href="https://luckypaper.co/articles/building-a-cube-from-a-collection/" target="_blank" rel="noopener">Building a Cube from a Collection</a>. <span id="built"></span></div>
+    <div>Your collection never leaves your browser. Some buy links are affiliate links, and purchases through them can earn this site a commission at no cost to you.</div>
+    <div>© 2026 Shoebox Cube. All rights reserved. The site's code and design may not be copied or redistributed without permission.</div>
+  </footer>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="panel-wrap zoom-wrap" id="zoom" hidden><div class="panel zoom" role="dialog" aria-modal="true" aria-label="Card details" id="zoomBox"></div></div>
+<div class="panel-wrap" id="panel" hidden><div class="panel" role="dialog" aria-modal="true" aria-labelledby="panelTitle" id="panelBox"></div></div>
+
+<script>
+"use strict";
+// ---- Site config: fill these in once you have accounts ----
+// Marks cards in the current build (dot and bold name on theme cards, a line in the enlarged view). Off for now.
+const SHOW_IN_CUBE = false;
+// Development shortcut: open straight on the theme picker with these answers. Set to null before launch.
+const DEV_START = null;
+const CONFIG = {
+  // Impact tracking prefix from your TCGplayer affiliate dashboard, e.g.
+  // "https://tcgplayer.pxf.io/c/1234567/1830156/21018?u=". Leave blank for plain links.
+  tcgAffiliatePrefix: "",
+};
+
+const COLORS = ["W", "U", "B", "R", "G"];
+const CNAME = { W: "White", U: "Blue", B: "Black", R: "Red", G: "Green", M: "Gold", C: "Colorless", L: "Lands" };
+const PILES = ["W", "U", "B", "R", "G", "M", "C", "L"];
+const PAIRS = ["WU", "UB", "BR", "RG", "GW", "WB", "UR", "BG", "RW", "GU"];
+// role bits from build_cards.py
+const R = { removal: 1, draw: 2, ramp: 4, counter: 8, sweeper: 16, tutor: 32, discard: 64, reanimate: 128 };
+// theme bits
+const T = { evasion: 1, flicker: 2, lifegain: 4, tokens: 8, wide: 16, sac: 32, gyfuel: 64, gymatters: 128, mill: 256, instant: 512, sorcery: 1024, second: 2048, haste: 4096, attack: 8192, counters: 16384, artifact: 32768, power: 65536,
+  enchSyn: 1 << 17, lands: 1 << 18, equipSyn: 1 << 19, stormCount: 1 << 20, extraLand: 1 << 21, auraSyn: 1 << 22, stormLike: 1 << 23, ritual: 1 << 24, costReducer: 1 << 25,
+  enchType: 1 << 26, equipType: 1 << 27, minus: 1 << 28, stormKw: 1 << 29 };
+// second theme field
+const T2 = { bigPay: 1, bigBody: 2, smallPay: 4, smallBody: 8, vehPay: 16, vehicle: 32 };
+// flag bits
+const F = { commander: 1, flying: 2, pauper: 4, gameChanger: 8, fetch: 16, changeling: 32, dfc: 64 };
+// Theme library. Any pair can take any theme; the collection decides which fit.
+const THEMES = {
+  flyers:    { name: "Flyers", t: 0, r: 0, fly: true },
+  blink:     { name: "Blink", t: T.flicker, r: 0 },
+  lifegain:  { name: "Lifegain", t: T.lifegain, r: 0 },
+  tokens:    { name: "Go wide with tokens", t: T.tokens | T.wide, r: 0 },
+  sacrifice: { name: "Sacrifice", t: T.sac, r: 0 },
+  graveyard: { name: "Graveyard value", t: T.gyfuel | T.gymatters, r: 0 },
+  reanimate: { name: "Reanimator", t: 0, r: R.reanimate },
+  spells:    { name: "Spells matter", t: T.instant | T.sorcery | T.second, r: 0 },
+  aggro:     { name: "Aggro", t: T.attack | T.haste, r: 0 },
+  counters:  { name: "+1/+1 counters", t: T.counters, r: 0 },
+  ramp:      { name: "Ramp and big creatures", t: 0, t2: T2.bigPay, r: R.ramp },
+  small:     { name: "Small creatures", t: 0, t2: T2.smallPay, r: 0 },
+  vehicles:  { name: "Vehicles", t: 0, t2: T2.vehPay | T2.vehicle, r: 0 },
+  artifacts: { name: "Artifacts", t: T.artifact, r: 0 },
+  control:   { name: "Control", t: 0, r: R.counter | R.sweeper },
+  mill:      { name: "Self-mill", t: T.mill, r: 0 },
+  enchant:   { name: "Enchantments", t: T.enchSyn | T.enchType, r: 0 },
+  landfall:  { name: "Landfall", t: T.lands | T.extraLand, r: 0 },
+  equip:     { name: "Equipment and Auras", t: T.equipSyn | T.auraSyn | T.equipType, r: 0 },
+  minus:     { name: "-1/-1 counters", t: T.minus, r: 0 },
+  storm:     { name: "Storm", t: T.stormCount | T.stormLike | T.stormKw | T.ritual | T.costReducer | T.second, r: 0 },
+};
+// For the theme view: which of a theme's cards are payoffs (shown big), and which extra cards support it.
+const THEME_ROLES = {
+  tokens:    { pay: T.wide },
+  graveyard: { pay: T.gymatters },
+  spells:    { pay: T.instant | T.sorcery | T.second, sup: (c) => /Instant|Sorcery/.test(c.type) && c.cmc <= 2 },
+  artifacts: { pay: T.artifact, sup: (c) => /Artifact/.test(c.type) },
+  enchant:   { pay: T.enchSyn },
+  landfall:  { pay: T.lands },
+  equip:     { pay: T.equipSyn | T.auraSyn },
+  storm:     { pay: T.stormCount | T.stormLike | T.stormKw },
+  sacrifice: { sup: (c) => (c.themes & T.tokens) !== 0 },
+  reanimate: { sup: (c) => (c.themes & T.gyfuel) !== 0 },
+  ramp:      { pay2: T2.bigPay | T2.bigBody, sup: (c) => (c.t2 & T2.bigBody) !== 0 },
+  small:     { pay2: T2.smallPay, sup: (c) => (c.t2 & T2.smallBody) !== 0 },
+  vehicles:  { pay2: T2.vehPay },
+};
+// The usual theme for each pair gets a small tiebreak bonus.
+const CLASSIC = { WU: "flyers", UB: "control", BR: "sacrifice", RG: "ramp", GW: "tokens", WB: "lifegain", UR: "spells", BG: "graveyard", RW: "aggro", GU: "counters" };
+// creature share and removal targets per 50 cards
+const NEED = {
+  W: { cre: 0.56, rem: 6 }, U: { cre: 0.40, rem: 3 }, B: { cre: 0.46, rem: 8 },
+  R: { cre: 0.48, rem: 8 }, G: { cre: 0.58, rem: 3 },
+};
+const CURVE = [0.12, 0.26, 0.22, 0.18, 0.12, 0.10]; // cmc <=1, 2, 3, 4, 5, 6+
+const POWER_HINT = {
+  pauper: "Commons only, ranked by how often pauper cubes play them.",
+  casual: "Ranked by budget and casual cubes. Fast mana and other format-warping cards are flagged instead of picked.",
+  powerful: "Ranked by vintage and legacy cubes. The strongest cards you own go in first.",
+};
+
+const state = {
+  size: 180, perColor: 25, perPair: 2, lands: 22, noCmdr: true, tri: true, power: "casual",
+  step: "q1", themeMode: "themed", powerMode: "balanced", drafters: "unsure", variety: "", answered: false,
+  likes: { W: {}, U: {}, B: {}, R: {}, G: {}, C: {}, M: {} }, openTheme: "", themeOut: {},
+  pins: new Set(), bans: new Set(), themes: {}, pile: "W", view: "pile", maxPrice: 2,
+  skipBinders: new Set(), skipKey: "", pullBy: "color", keepCube: true, cubeMode: "list",
+};
+let DB = null;        // {rows, byName}
+let OWNED = null;     // Map name -> qty (canonical names)
+let SETS = new Map(); // name -> set codes from the collection file
+let UNMATCHED = [];
+let SRC = "";
+let CUBE = null;      // build result
+let THEME_INFO = {};  // pair -> [{key, owned, lift}] for the current collection
+let PACK = null;
+
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function store(k, v) { try { localStorage.setItem("shoebox3:" + k, JSON.stringify(v)); } catch (e) {} }
+function recall(k, d) { try { const v = localStorage.getItem("shoebox3:" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
+
+// ---------- card data ----------
+function card(row) {
+  return {
+    name: row[0], cost: row[1], cmc: row[2], type: row[3], colors: row[4], identity: row[5],
+    rank: row[6], roles: row[7], themes: row[8], flags: row[9], produces: row[10],
+    usd: row[11], tcg: row[12], rarity: row[13], cP: row[14], cC: row[15], cPa: row[16],
+    sub: row[17] ? row[17].split(",") : [], pay: row[18] ? row[18].split(",") : [], img: row[19] || "", l17: row[20] ?? -1, t2: row[21] || 0, split: row[22] ? row[22].split("|").slice(0, 2) : null, backCost: row[22] ? row[22].split("|")[2] || "" : "",
+  };
+}
+async function loadDB() {
+  const res = await fetch("cards.json");
+  if (!res.ok) throw new Error("cards.json " + res.status);
+  const data = await res.json();
+  const rows = data.rows.map(card);
+  const byName = new Map();
+  for (const c of rows) {
+    c.isLand = /\bLand\b/.test(c.type);
+    c.isCreature = /\bCreature\b/.test(c.type);
+    c.nColors = COLORS.filter((x) => c.produces.includes(x)).length;
+    c.fixing = c.isLand && (c.nColors >= 2 || (c.flags & F.fetch) !== 0);
+    byName.set(c.name.toLowerCase(), c);
+    if (c.name.includes(" // ")) {
+      const front = c.name.split(" // ")[0].toLowerCase();
+      if (!byName.has(front)) byName.set(front, c);
+    }
+  }
+  DB = { rows, byName, built: data.built, refCubes: data.refCubes };
+  $("#built").textContent = data.built ? "Card data updated " + data.built + "." : "";
+}
+
+// Strength within the chosen power band. Cube appearances dominate; EDHREC rank breaks ties.
+function cubeCount(c) {
+  return state.power === "powerful" ? c.cP : state.power === "pauper" ? c.cPa : c.cC;
+}
+function rankScore(c) { return c.rank > 0 ? Math.max(0, Math.min(40, 40 - 6 * Math.log2(c.rank / 100))) : 0; }
+function isAboveBand(c) {
+  if (state.power === "powerful") return false;
+  if (state.power === "pauper") return false; // non-commons are filtered out instead
+  // casual: fast mana and other format-warping cards, Commander's game changers,
+  // and cards nearly every powered cube plays while no casual cube does
+  return (c.flags & F.gameChanger) !== 0 || BROKEN.has(c.name) || (c.cP >= 6 && c.cC === 0);
+}
+const BROKEN = new Set(["Sol Ring", "Mana Crypt", "Mana Vault", "Grim Monolith", "Black Lotus", "Mox Pearl", "Mox Sapphire", "Mox Jet", "Mox Ruby", "Mox Emerald",
+  "Mox Diamond", "Chrome Mox", "Mox Opal", "Mox Amber", "Lion's Eye Diamond", "Jeweled Lotus", "Lotus Petal", "Ancestral Recall", "Time Walk", "Timetwister",
+  "Channel", "Tinker", "Necropotence", "Yawgmoth's Will", "Demonic Tutor", "Vampiric Tutor", "Imperial Seal", "Mana Drain", "Library of Alexandria",
+  "Strip Mine", "Bazaar of Baghdad", "Mishra's Workshop", "Coveted Jewel", "Sensei's Divining Top", "Skullclamp", "Survival of the Fittest", "Oath of Druids"]);
+function isWeak(c) { return c.cP + c.cC + c.cPa === 0 && (!c.rank || c.rank > 15000); }
+// 17lands: how well the card won in its own set's drafts, as a percentile (0-100) within that set.
+// Strong results add up to +35, lifting cards cube lists haven't caught up with. Weak results only count
+// against cards no cube runs: cube staples like cheap removal are often just average in their own set's draft.
+function draftScore(c) {
+  if (c.l17 < 0) return 0;
+  if (c.l17 >= 50) return (c.l17 - 50) * 0.7;
+  return cubeCount(c) >= 2 ? 0 : (c.l17 - 50) * 0.35;
+}
+function score(c) {
+  let s = rankScore(c) + draftScore(c);
+  if (state.power === "powerful") s += (c.cP ? 50 + c.cP * 8 : 0) + c.cC * 2;
+  else if (state.power === "pauper") s += (c.cPa ? 50 + c.cPa * 12 : 0) + c.cC * 2 + c.cP;
+  else s += (c.cC ? 50 + c.cC * 8 : 0) + Math.min(c.cP, 3) * 4;
+  return s;
+}
+
+// ---------- collection parsing ----------
+const BASICS = new Set(["plains", "island", "swamp", "mountain", "forest", "wastes", "snow-covered plains", "snow-covered island", "snow-covered swamp", "snow-covered mountain", "snow-covered forest"]);
+function parseCSVLine(line, delim) {
+  const out = []; let cur = ""; let q = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (q) {
+      if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+      else cur += ch;
+    } else if (ch === '"') q = true;
+    else if (ch === delim) { out.push(cur); cur = ""; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out.map((s) => s.trim());
+}
+function parseCollection(text) {
+  const lines = text.replace(/^﻿/, "").split(/\r?\n/).filter((l) => l.trim());
+  const entries = [];
+  if (!lines.length) return entries;
+  const first = lines[0];
+  const delim = first.includes("\t") ? "\t" : first.includes(";") && !first.includes(",") ? ";" : ",";
+  const head = parseCSVLine(first, delim).map((h) => h.toLowerCase().replace(/^"|"$/g, ""));
+  const nameIdx = head.findIndex((h) => /^(name|card name|card|cardname)$/.test(h));
+  if (nameIdx >= 0 && head.length > 1) {
+    const qIdx = head.findIndex((h) => /^(quantity|count|qty|amount|total quantity)$/.test(h));
+    const sIdx = head.findIndex((h) => /^(set code|set_code|edition code|setcode|set)$/.test(h));
+    const bIdx = head.findIndex((h) => /^(binder name|binder|location|folder|storage|box)$/.test(h));
+    for (const l of lines.slice(1)) {
+      const cells = parseCSVLine(l, delim);
+      const nm = cells[nameIdx];
+      if (!nm) continue;
+      entries.push([nm, qIdx >= 0 ? parseInt(cells[qIdx], 10) || 1 : 1, sIdx >= 0 ? cells[sIdx] : "", bIdx >= 0 ? cells[bIdx] : ""]);
+    }
+  } else {
+    for (let l of lines) {
+      l = l.trim();
+      if (/^(\/\/|#)/.test(l) || /^(deck|sideboard|commander|maybeboard)$/i.test(l)) continue;
+      const m = l.match(/^(\d+)\s*x?\s+(.+)$/i);
+      let nm = m ? m[2] : l; const qty = m ? parseInt(m[1], 10) : 1;
+      const sm = nm.match(/\s+\(([A-Z0-9]{2,6})\)/i);
+      nm = nm.replace(/\s+\([A-Z0-9]{2,6}\)\s*[\w-]*\s*(\*F\*)?$/i, "").replace(/\s+\*F\*$/, "").trim();
+      entries.push([nm, qty, sm ? sm[1] : "", ""]);
+    }
+  }
+  return entries;
+}
+function resolveName(nm) {
+  const k = nm.toLowerCase().trim();
+  return DB.byName.get(k) || DB.byName.get(k.split(" // ")[0]) || DB.byName.get(k.replace(/\s*\/\s*/, " // ")) || null;
+}
+let ENTRIES = [];          // parsed rows of the current collection
+let BINDERS = new Map();   // binder name -> number of cards
+let LOCS = new Map();      // card name -> binders holding it (skipped binders excluded)
+let CURRENT = new Set();   // cards the build should prefer keeping (unused for now: binder detection is off)
+let CUBE_BINDERS = [];
+const KEEP_BONUS = 45;     // how strongly the build prefers cards already in the paper cube
+const natural = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+
+function setCollection(text, label) {
+  ENTRIES = parseCollection(text); SRC = label; PACK = null;
+  BINDERS = new Map();
+  for (const e of ENTRIES) if (e[3]) BINDERS.set(e[3], (BINDERS.get(e[3]) || 0) + e[1]);
+  // First time we see binders: leave out ones that look like sell or trade piles.
+  const key = "skip:" + label;
+  let skip = recall(key, null);
+  if (!skip) skip = [...BINDERS.keys()].filter((b) => /sell|sold|trade|sale|bulk\s*out/i.test(b));
+  state.skipBinders = new Set(skip.filter((b) => BINDERS.has(b)));
+  state.skipKey = key;
+  applyCollection();
+  renderBinders();
+}
+function applyCollection() {
+  const owned = new Map(); const miss = new Set(); const sets = new Map(); const locs = new Map();
+  let total = 0, skipped = 0;
+  for (const [nm, q, set, binder] of ENTRIES) {
+    if (binder && state.skipBinders.has(binder)) { skipped += q; continue; }
+    total += q;
+    const c = resolveName(nm);
+    if (c) {
+      owned.set(c.name, (owned.get(c.name) || 0) + q);
+      if (set) { const s = sets.get(c.name) || new Set(); s.add(set.toUpperCase()); sets.set(c.name, s); }
+      if (binder) { const s = locs.get(c.name) || new Set(); s.add(binder); locs.set(c.name, s); }
+    } else if (!BASICS.has(nm.toLowerCase())) miss.add(nm);
+  }
+  OWNED = owned; SETS = sets; LOCS = locs; UNMATCHED = [...miss];
+  // Guessing the current cube from binder names is off: binder names vary too much. Import a cube on the Compare tab instead.
+  CUBE_BINDERS = []; CURRENT = new Set();
+  $("#src").innerHTML = `<b>${esc(SRC)}</b>: ${total.toLocaleString()} cards, ${owned.size.toLocaleString()} unique cube candidates` +
+    (skipped ? `, ${skipped.toLocaleString()} left out from skipped binders` : "") + (UNMATCHED.length ? `, ${UNMATCHED.length} names not recognized` : "");
+  rebuild();
+  renderFind();
+}
+function renderBinders() {
+  const box = $("#binders");
+  if (BINDERS.size < 2) { box.hidden = true; box.innerHTML = ""; return; }
+  box.hidden = false;
+  const names = [...BINDERS.keys()].sort(natural);
+  const on = names.length - state.skipBinders.size;
+  box.innerHTML = `<summary>Binders: using ${on} of ${names.length}</summary>
+    <p class="hint" style="margin:6px 0">Untick binders to leave their cards out, like a sell box. A card stays in if any copy is in a ticked binder.</p>
+    <div class="row" style="margin-bottom:6px"><button class="btn small" type="button" data-binders="all">Tick all</button><button class="btn small" type="button" data-binders="none">Untick all</button></div>
+    <div class="binderlist">${names.map((b, i) => `<label class="check"><input type="checkbox" id="bd-${i}" data-binder="${esc(b)}" ${state.skipBinders.has(b) ? "" : "checked"}> <span>${esc(b)} <span class="price">${BINDERS.get(b)}</span></span></label>`).join("")}</div>`;
+}
+function binderChanged() {
+  store(state.skipKey, [...state.skipBinders]);
+  const sum = $("#binders summary");
+  if (sum) sum.textContent = `Binders: using ${BINDERS.size - state.skipBinders.size} of ${BINDERS.size}`;
+  clearTimeout(binderChanged.t); binderChanged.t = setTimeout(applyCollection, 150);
+}
+
+// ---------- builder ----------
+// Cards castable from either side with a different color on each ("split" cards) belong to
+// both colors and count as half a card in each.
+const weight = (c) => (c.split ? 0.5 : 1);
+// Which side to show when a split card appears under a color: the side of that color.
+const backFor = (c, color) => !!(c.split && c.split[1] === color);
+const wsum = (list) => list.reduce((a, c) => a + weight(c), 0);
+const fmtN = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+function pileOf(c) {
+  if (c.isLand) return "L";
+  if (c.split) return c.split[0];
+  if (c.colors.length === 0) return "C";
+  if (c.colors.length === 1) return c.colors;
+  return "M";
+}
+function pairOf(c) {
+  if (c.colors.length !== 2 || c.split) return null;
+  return PAIRS.find((p) => p.includes(c.colors[0]) && p.includes(c.colors[1])) || null;
+}
+// Cards the user removed from a theme, by theme key.
+let OUTSETS = {};
+function syncOut() { OUTSETS = Object.fromEntries(Object.entries(state.themeOut).map(([k, v]) => [k, new Set(v)])); }
+function themeFits(c, key) {
+  if (OUTSETS[key] && OUTSETS[key].has(c.name)) return false;
+  if (key.startsWith("tribe:")) {
+    const t = key.slice(6);
+    return c.sub.includes(t) || c.pay.includes(t) || (c.isCreature && (c.flags & F.changeling) !== 0);
+  }
+  const t = THEMES[key]; if (!t) return false;
+  return (c.themes & t.t) || (c.t2 & (t.t2 || 0)) || (c.roles & t.r) || (t.fly && (c.flags & F.flying));
+}
+const IRREGULAR = { Elf: "Elves", Dwarf: "Dwarves", Wolf: "Wolves", Werewolf: "Werewolves", Fungus: "Fungi", Mouse: "Mice", Ox: "Oxen", Merfolk: "Merfolk", Sliver: "Slivers", Fish: "Fish", Sheep: "Sheep" };
+function plural(t) {
+  if (IRREGULAR[t]) return IRREGULAR[t];
+  if (/(s|x|ch|sh)$/.test(t)) return t + "es";
+  if (/[^aeiou]y$/.test(t)) return t.slice(0, -1) + "ies";
+  return t + "s";
+}
+function themeName(key) {
+  if (!key) return "No theme";
+  if (key.startsWith("tribe:")) return plural(key.slice(6));
+  return THEMES[key] ? THEMES[key].name : key;
+}
+function inPair(c, p) { return c.colors.length > 0 && [...c.colors].every((x) => p.includes(x)); }
+function pairTheme(p) { return (THEME_INFO[p] && THEME_INFO[p].auto) || null; }
+function archFits(c, p) { const k = pairTheme(p); return k ? themeFits(c, k) : false; }
+function curveIdx(c) { return Math.max(0, Math.min(5, Math.round(c.cmc) - 1 + (c.cmc < 1 ? 1 : 0))); }
+function isRemoval(c) { return (c.roles & (R.removal | R.counter | R.sweeper)) !== 0; }
+
+function eligible(c) {
+  if (state.pins.has(c.name)) return true;
+  if (state.noCmdr && (c.flags & F.commander)) return false;
+  if (c.colors.length >= 3 && !state.tri && !(state.keepCube && CURRENT.has(c.name))) return false;
+  if (state.power === "pauper" && !(c.flags & F.pauper) && !c.isLand) return false;
+  return true;
+}
+function candidates() {
+  const list = [];
+  for (const [name] of OWNED) {
+    const c = DB.byName.get(name.toLowerCase());
+    if (!c || state.bans.has(c.name) || !eligible(c)) continue;
+    c.base = score(c); c.held = false;
+    list.push(c);
+  }
+  // Balanced power trims the outliers: the strongest few cards sit out, and the rest of the top
+  // end is flattened so curve, color and theme decide between strong cards.
+  let flat = Infinity, top = Infinity;
+  if (state.powerMode === "balanced") {
+    const bases = list.filter((c) => !c.isLand).map((c) => c.base).sort((a, b) => b - a);
+    top = bases[Math.max(2, Math.round(state.size * 0.03))] ?? Infinity;
+    flat = bases[Math.round(state.size * 0.25)] ?? Infinity;
+  }
+  for (const c of list) {
+    const kept = state.keepCube && CURRENT.has(c.name);
+    const pinned = state.pins.has(c.name);
+    const outlier = state.powerMode === "balanced" && !c.isLand && (c.base > top || BROKEN.has(c.name) || (c.flags & F.gameChanger));
+    if ((isAboveBand(c) || outlier) && !pinned && !kept) { c.held = true; c.base -= 80; }
+    else if (c.base > flat && !c.isLand) c.base = flat + (c.base - flat) * 0.15;
+    if (state.powerMode === "balanced" && isWeak(c) && !pinned) c.base -= 20;
+    if (kept) c.base += KEEP_BONUS;
+    if (pinned) c.base += 1000;
+  }
+  return list;
+}
+
+// Cards first: measure which themes the collection supports in each pair.
+function discoverThemes(pool) {
+  const want = themeWant();
+  const info = {};
+  // "Good" means strong enough to make this cube: roughly the top cards of the pool,
+  // so the bar adapts to the power level and the collection.
+  const bases = pool.filter((c) => !c.isLand && !state.pins.has(c.name)).map((c) => c.base).sort((a, b) => b - a);
+  const bar = bases.length ? bases[Math.min(bases.length - 1, Math.round(state.size * 1.3))] : 0;
+  THEME_BAR = bar;
+  // baseline rate of each theme among all playable cards of those colors
+  for (const p of PAIRS) {
+    const mine = pool.filter((c) => !c.isLand && inPair(c, p));
+    // creature types: need at least one card that rewards the type
+    const tribes = {};
+    for (const c of mine) {
+      for (const t of c.sub) (tribes[t] = tribes[t] || { m: 0, p: 0 }).m++;
+      for (const t of c.pay) (tribes[t] = tribes[t] || { m: 0, p: 0 }).p++;
+    }
+    const keys = Object.keys(THEMES).concat(Object.keys(tribes).filter((t) => tribes[t].p >= 1 && tribes[t].m + tribes[t].p >= 3).map((t) => "tribe:" + t));
+    const opts = keys.map((key) => {
+      const fits = mine.filter((c) => themeFits(c, key));
+      const good = fits.filter((c) => c.base >= bar).length;
+      const rate = mine.length ? fits.length / mine.length : 0;
+      const tribe = key.startsWith("tribe:");
+      return { key, owned: fits.length, good, rate, tribe, pays: tribe ? tribes[key.slice(6)].p : 0 };
+    });
+    for (const o of opts) { const b = baseRate(p, o.key); o.lift = b ? o.rate / b : (o.tribe ? 1 : 0); }
+    // strength: enough good enablers, weighted by how unusually dense the theme is here
+    // Typal themes are judged by their payoffs: six cards that reward the type is a full theme, and more makes it a strong pull.
+    for (const o of opts) o.strength = o.tribe
+      ? Math.min(o.good, want * 2) * (Math.min(o.pays, 8) / 6) * 1.1
+      : Math.min(o.good, want * 2) * Math.sqrt(Math.max(0.2, o.lift)) * (CLASSIC[p] === o.key ? 1.15 : 1);
+    opts.sort((a, b) => b.strength - a.strength);
+    info[p] = { opts, auto: null, want };
+  }
+  THEME_INFO = info;
+  if (state.themeMode === "none") return;
+  const L = state.likes;
+  const disliked = (p, key) => L[p[0]][key] === -1 || L[p[1]][key] === -1 || L.M[p + "|" + key] === -1;
+  const usedThemes = new Set();
+  // 1. Pairs you liked directly in the multicolor section.
+  for (const p of PAIRS) {
+    const liked = info[p].opts.filter((o) => L.M[p + "|" + o.key] === 1);
+    if (liked.length) { info[p].auto = liked[0].key; info[p].why = "liked"; usedThemes.add(liked[0].key); }
+  }
+  // 2. Themes you liked in both of a pair's colors.
+  for (const p of PAIRS) {
+    if (info[p].auto) continue;
+    const shared = info[p].opts.find((o) => L[p[0]][o.key] === 1 && L[p[1]][o.key] === 1 && !disliked(p, o.key));
+    if (shared) { info[p].auto = shared.key; info[p].why = "both colors liked"; usedThemes.add(shared.key); }
+  }
+  // 3. The rest: strongest supported theme, liked in one color first, each theme once.
+  const combos = PAIRS.flatMap((p) => info[p].opts.filter((o) => o.good >= want && (!o.tribe || o.pays >= 4) && !disliked(p, o.key))
+    .map((o) => ({ p, key: o.key, s: o.strength * (L[p[0]][o.key] === 1 || L[p[1]][o.key] === 1 ? 1.6 : 1) })));
+  combos.sort((a, b) => b.s - a.s);
+  for (const { p, key } of combos) {
+    if (info[p].auto || usedThemes.has(key)) continue;
+    info[p].auto = key; info[p].why = "auto"; usedThemes.add(key);
+  }
+}
+// How common each theme is among cards that real cubes play in these colors.
+const BASE_RATES = {}; const CUBE_PLAYED = {};
+function baseRate(p, key) {
+  const k = p + "|" + key;
+  if (k in BASE_RATES) return BASE_RATES[k];
+  const all = CUBE_PLAYED[p] || (CUBE_PLAYED[p] = DB.rows.filter((c) => !c.isLand && (p === "C" ? c.colors === "" : inPair(c, p)) && (c.cP + c.cC + c.cPa) > 0));
+  return (BASE_RATES[k] = all.length ? all.filter((c) => themeFits(c, key)).length / all.length : 0);
+}
+function themeWant() { return Math.max(4, Math.round(state.perColor * 0.18 + state.perPair)); }
+
+function pickMono(color, pool, n, forced) {
+  const need = NEED[color];
+  const creT = Math.round(n * need.cre);
+  const remT = Math.round((n * need.rem) / 50);
+  const curveT = CURVE.map((f) => Math.max(1, Math.round(f * n)));
+  const pairs = PAIRS.filter((p) => p.includes(color) && pairTheme(p));
+  const themeT = Math.max(1, Math.round(n * 0.09));
+  const likedKeys = state.themeMode === "none" ? [] : Object.keys(state.likes[color]).filter((k) => state.likes[color][k] === 1);
+  const dislikedKeys = state.themeMode === "none" ? [] : Object.keys(state.likes[color]).filter((k) => state.likes[color][k] === -1);
+  const likedT = Math.max(2, Math.round(n * 0.15));
+  const st = { cre: 0, non: 0, rem: 0, curve: [0, 0, 0, 0, 0, 0], theme: Object.fromEntries(pairs.map((p) => [p, 0])), liked: Object.fromEntries(likedKeys.map((k) => [k, 0])) };
+  const picked = [];
+  const add = (c) => {
+    picked.push(c);
+    if (c.isCreature) st.cre++; else st.non++;
+    if (isRemoval(c)) st.rem++;
+    st.curve[curveIdx(c)]++;
+    for (const p of pairs) if (archFits(c, p)) st.theme[p]++;
+    for (const k of likedKeys) if (themeFits(c, k)) st.liked[k]++;
+  };
+  const rest = [];
+  let total = 0;
+  for (const c of pool) {
+    if (forced && c.split) { if (forced.has(c.name)) { add(c); total += 0.5; } continue; }
+    if (state.pins.has(c.name)) { add(c); total += weight(c); } else rest.push(c);
+  }
+  const value = (c) => {
+    let v = c.base;
+    const ci = curveIdx(c);
+    if (st.curve[ci] < curveT[ci]) v += 14; else v -= 18 * (st.curve[ci] - curveT[ci] + 1) / Math.max(1, curveT[ci]);
+    if (c.isCreature) { if (st.cre < creT) v += 10; }
+    else if (st.non >= n - creT) v -= 22;
+    if (isRemoval(c) && st.rem < remT) v += 22;
+    let onTheme = false;
+    for (const p of pairs) if (archFits(c, p)) { onTheme = true; if (st.theme[p] < themeT) v += 12; }
+    for (const k of likedKeys) if (themeFits(c, k)) { onTheme = true; if (st.liked[k] < likedT) v += 14; }
+    if (!onTheme && dislikedKeys.some((k) => themeFits(c, k))) v -= 8;
+    return v;
+  };
+  // Stop when less than a whole card is left: a half-counted card already fills that gap.
+  while (n - total >= 0.75 && rest.length) {
+    let best = -1, bv = -Infinity;
+    for (let i = 0; i < rest.length; i++) { const v = value(rest[i]); if (v > bv) { bv = v; best = i; } }
+    const c = rest.splice(best, 1)[0]; add(c); total += weight(c);
+  }
+  rest.sort((a, b) => value(b) - value(a));
+  return { picked, bench: rest.slice(0, 15) };
+}
+
+function pickGold(pool, perPair) {
+  const byPair = Object.fromEntries(PAIRS.map((p) => [p, []]));
+  const other = [];
+  for (const c of pool) { const p = pairOf(c); if (p) byPair[p].push(c); else other.push(c); }
+  const picked = []; const bench = [];
+  const val = (c, p) => c.base + (archFits(c, p) ? 25 : 0);
+  for (const p of PAIRS) {
+    // Half the slots go to the strongest gold cards whatever their theme,
+    // so powerful or fun off-theme cards still make it.
+    const pins = byPair[p].filter((c) => state.pins.has(c.name));
+    const byPower = byPair[p].filter((c) => !state.pins.has(c.name)).sort((a, b) => b.base - a.base);
+    const take = [...pins, ...byPower.slice(0, Math.max(0, Math.ceil(perPair / 2) - pins.length))];
+    const rest = byPair[p].filter((c) => !take.includes(c)).sort((a, b) => val(b, p) - val(a, p));
+    while (take.length < perPair && rest.length) take.push(rest.shift());
+    picked.push(...take); bench.push(...rest.slice(0, 3));
+  }
+  const keptOther = state.keepCube ? other.filter((c) => CURRENT.has(c.name)).length : 0;
+  if (state.tri || keptOther) {
+    other.sort((a, b) => b.base - a.base);
+    const n = state.tri ? Math.max(keptOther, Math.round(perPair * 1.5)) : keptOther;
+    picked.push(...other.slice(0, n)); bench.push(...other.slice(n, n + 5));
+  }
+  bench.sort((a, b) => b.base - a.base);
+  return { picked, bench };
+}
+
+function pickColorless(pool, n) {
+  const pins = pool.filter((c) => state.pins.has(c.name));
+  const liked = state.themeMode === "none" ? [] : Object.keys(state.likes.C).filter((k) => state.likes.C[k] === 1);
+  const cv = (c) => c.base + (liked.some((k) => themeFits(c, k)) ? 20 : 0);
+  const rest = pool.filter((c) => !state.pins.has(c.name)).sort((a, b) => cv(b) - cv(a));
+  const picked = [...pins]; let rocks = pins.filter((c) => c.roles & R.ramp).length;
+  const cap = Math.ceil(n * 0.35); const bench = [];
+  for (const c of rest) {
+    if (picked.length >= n) { bench.push(c); continue; }
+    if ((c.roles & R.ramp) && rocks >= cap) { bench.push(c); continue; }
+    if (c.roles & R.ramp) rocks++;
+    picked.push(c);
+  }
+  return { picked, bench: bench.slice(0, 15) };
+}
+
+function landPair(c) {
+  const cols = COLORS.filter((x) => c.produces.includes(x));
+  if (cols.length !== 2) return null;
+  return PAIRS.find((p) => p.includes(cols[0]) && p.includes(cols[1]));
+}
+function dualsPerPair() { return Math.floor((state.lands * 0.75) / 10); }
+function pickLands(pool, n) {
+  const pins = pool.filter((c) => state.pins.has(c.name));
+  const picked = [...pins]; const used = new Set(pins.map((c) => c.name));
+  const perPair = dualsPerPair();
+  const val = (c) => c.base + (c.fixing ? 30 : 0);
+  for (const p of PAIRS) {
+    const have = picked.filter((c) => landPair(c) === p).length;
+    const list = pool.filter((c) => !used.has(c.name) && landPair(c) === p).sort((a, b) => val(b) - val(a));
+    for (const c of list.slice(0, Math.max(0, perPair - have))) { picked.push(c); used.add(c.name); }
+  }
+  const rest = pool.filter((c) => !used.has(c.name)).sort((a, b) => val(b) - val(a));
+  while (picked.length < n && rest.length) picked.push(rest.shift());
+  return { picked: picked.slice(0, Math.max(n, pins.length)), bench: rest.slice(0, 15) };
+}
+
+function rebuild() {
+  if (!DB || !OWNED) return;
+  const pool = candidates();
+  discoverThemes(pool);
+  const buckets = { W: [], U: [], B: [], R: [], G: [], M: [], C: [], L: [] };
+  for (const c of pool) { if (c.split && !c.isLand) { buckets[c.split[0]].push(c); buckets[c.split[1]].push(c); } else buckets[pileOf(c)].push(c); }
+  const piles = {}; const target = {};
+  for (const col of COLORS) { piles[col] = pickMono(col, buckets[col], state.perColor); target[col] = state.perColor; }
+  // Split cards picked by either color go in both, half a card each: rebuild the colors with them fixed in place.
+  const splitPicked = new Set(COLORS.flatMap((col) => piles[col].picked.filter((c) => c.split).map((c) => c.name)));
+  if (buckets.W.concat(buckets.U, buckets.B, buckets.R, buckets.G).some((c) => c.split))
+    for (const col of COLORS) piles[col] = pickMono(col, buckets[col], state.perColor, splitPicked);
+  piles.M = pickGold(buckets.M, state.perPair);
+  const keptTri = state.keepCube ? buckets.M.filter((c) => c.colors.length > 2 && CURRENT.has(c.name)).length : 0;
+  target.M = state.perPair * 10 + (state.tri ? Math.max(keptTri, Math.round(state.perPair * 1.5)) : keptTri);
+  piles.L = pickLands(buckets.L, state.lands); target.L = state.lands;
+  target.C = Math.max(0, state.size - (COLORS.length * state.perColor + target.M + state.lands));
+  piles.C = pickColorless(buckets.C, target.C);
+  const unique = () => new Set(PILES.flatMap((p) => piles[p].picked.map((c) => c.name))).size;
+  let total = unique();
+  if (state.size - total > 0) {
+    piles.C = pickColorless(buckets.C, target.C + state.size - total);
+    total = unique();
+  }
+  // power outliers: strong cards held back, and weak cards that made it in
+  const inCube = new Set(PILES.flatMap((p) => piles[p].picked.map((c) => c.name)));
+  const above = pool.filter((c) => c.held && !inCube.has(c.name)).sort((a, b) => (b.cP + b.cC - a.cP - a.cC) || (a.rank - b.rank));
+  const weak = PILES.flatMap((p) => piles[p].picked).filter((c) => isWeak(c) && !c.isLand && !state.pins.has(c.name));
+  CUBE = { piles, target, total, inCube, above, weak, poolSize: pool.length, pool };
+  renderAll();
+}
+
+// ---------- rendering ----------
+function pips(cost) {
+  if (!cost) return "";
+  const parts = cost.split(" // ")[0].match(/\{[^}]+\}/g) || [];
+  return `<span class="cost" aria-label="${esc(cost)}">` + parts.map((p) => {
+    const s = p.slice(1, -1);
+    if (/^[WUBRG]$/.test(s)) return `<span class="pip ${s}"></span>`;
+    const h = s.match(/^([WUBRG])\/([WUBRG])$/);
+    if (h) return `<span class="pip h" style="--a:var(--m${h[1]});--b:var(--m${h[2]})"></span>`;
+    const ph = s.match(/^([WUBRG])\/P$/);
+    if (ph) return `<span class="pip ${ph[1]}">ϕ</span>`;
+    return `<span class="pip">${esc(s.replace(/\/.*/, ""))}</span>`;
+  }).join("") + "</span>";
+}
+function sfLink(c) { return "https://scryfall.com/search?q=" + encodeURIComponent('!"' + c.name + '"'); }
+function aff(url) { return CONFIG.tcgAffiliatePrefix ? CONFIG.tcgAffiliatePrefix + encodeURIComponent(url) : url; }
+function tcgLink(c) { return aff(c.tcg ? "https://www.tcgplayer.com/product/" + c.tcg : "https://www.tcgplayer.com/search/magic/product?q=" + encodeURIComponent(c.name)); }
+function roleTags(c) {
+  const t = [];
+  if (c.roles & R.sweeper) t.push("sweeper"); else if (c.roles & R.counter) t.push("counter"); else if (c.roles & R.removal) t.push("removal");
+  if (c.roles & R.draw) t.push("draw");
+  if (c.roles & R.ramp) t.push("ramp");
+  if (c.fixing) t.push("fixing");
+  return t.slice(0, 2);
+}
+function starBtn(c) {
+  const on = state.pins.has(c.name);
+  return `<button class="star" type="button" data-star="${esc(c.name)}" aria-pressed="${on}" aria-label="${on ? "Unstar" : "Star"} ${esc(c.name)}" title="${on ? "Starred: always in the cube" : "Star: always include"}">★</button>`;
+}
+function cardRow(c, mode) {
+  const tags = mode === "find" ? "" : (c.split ? `<span class="tag" title="Castable from either side: counts as half a card in each color">½ ${c.split.map((x) => CNAME[x]).join("/")}</span>` : "") + (c.held ? `<span class="tag hot" title="Held back as too strong for your settings">strong</span>` : "") + roleTags(c).map((t) => `<span class="tag">${t}</span>`).join("");
+  let btn = "";
+  if (mode === "bench") btn = `<button class="x add" type="button" data-add="${esc(c.name)}" aria-label="Add ${esc(c.name)}" title="Add to cube">+</button>`;
+  else if (mode === "maybe") btn = `<button class="x add" type="button" data-restore="${esc(c.name)}" aria-label="Restore ${esc(c.name)}" title="Back into the build">↺</button>`;
+  else if (mode === "find") btn = CUBE && CUBE.inCube.has(c.name) ? `<span class="tag">in cube</span>` : state.bans.has(c.name) ? `<span class="tag">maybe</span>` : `<span class="tag">${CNAME[pileOf(c)]}</span>`;
+  else btn = `<button class="x" type="button" data-cut="${esc(c.name)}" aria-label="Cut ${esc(c.name)}" title="Move to the maybe pile">×</button>`;
+  const cost = c.split && state.view === "pile" && state.pile === c.split[1] ? c.backCost : c.cost;
+  return `<li class="card">${starBtn(c)}<span class="nm">${pips(cost)}<a href="${sfLink(c)}" target="_blank" rel="noopener">${esc(c.name)}</a></span><span class="tags">${tags}</span>${btn}</li>`;
+}
+
+function pileStats(list) {
+  const nonland = list.filter((c) => !c.isLand);
+  const cre = nonland.filter((c) => c.isCreature).length;
+  const rem = nonland.filter(isRemoval).length;
+  const avg = nonland.length ? nonland.reduce((a, c) => a + c.cmc, 0) / nonland.length : 0;
+  const curve = [0, 0, 0, 0, 0, 0, 0];
+  for (const c of nonland) curve[Math.min(6, Math.max(0, Math.round(c.cmc)))]++;
+  return { n: fmtN(wsum(list)), cre, rem, avg, curve };
+}
+function fixingStats() {
+  const lands = CUBE.piles.L.picked;
+  const fix = lands.filter((c) => c.fixing).length;
+  const byPair = Object.fromEntries(PAIRS.map((p) => [p, lands.filter((c) => landPair(c) === p).length]));
+  return { fix, pct: (fix / state.size) * 100, byPair };
+}
+
+function renderAll() {
+  const { piles, target, total } = CUBE;
+  $("#bigCount").innerHTML = `${total} cards <small>of ${state.size} · singleton · ${state.power}</small>`;
+  const notes = [];
+  if (SRC.startsWith("Sample")) notes.push(`<div class="notice">This is a sample collection. Drop your own file on the left to build from your cards.</div>`);
+  if (state.size > 180 && CUBE.poolSize < state.size * 1.6) notes.push(`<div class="notice">Your collection is thin for ${state.size} cards. Lucky Paper suggests starting at 180: it plays well with 2 to 4 people, and growing a cube is easier than shrinking one. <button type="button" data-size="180">Switch to 180</button></div>`);
+  if (total < state.size) notes.push(`<div class="notice warn">Your collection is ${state.size - total} cards short of a ${state.size}-card cube. Try a smaller size, or see Upgrades for cheap cards to fill the gaps.</div>`);
+  const fx = fixingStats();
+  if (fx.pct < 10) notes.push(`<div class="notice warn">Only ${fx.fix} fixing lands (${fx.pct.toFixed(0)}% of the cube). Cubes usually run 10 to 20%. Upgrades lists the cheapest lands to close the gap.</div>`);
+  if (CUBE.above.length) notes.push(`<div class="notice">${CUBE.above.length} of your strongest cards are held back to keep power even, like ${esc(CUBE.above.slice(0, 2).map((c) => c.name).join(" and "))}. Star any you want anyway. <button type="button" data-goto="balance">See the list</button></div>`);
+  $("#notices").innerHTML = notes.join("");
+  $("#piles").innerHTML = PILES.map((p) => {
+    const n = wsum(piles[p].picked); const t = target[p];
+    return `<button class="pile" type="button" role="tab" data-pile="${p}" aria-selected="${state.pile === p}" style="--pc:var(--m${p})"><span class="n">${fmtN(n)}${p !== "C" ? `<small>/${t}</small>` : ""}</span><span class="nm">${CNAME[p]}</span>${t - n >= 1 && p !== "C" ? `<span class="short">${fmtN(t - n)} short</span>` : ""}</button>`;
+  }).join("");
+  document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.v === state.view));
+  $("#starCount").textContent = state.pins.size ? `${state.pins.size} starred` : "";
+  renderAnswers();
+  renderView();
+}
+
+function renderView() {
+  const v = state.view;
+  if (v === "pile") renderCube();
+  else if (v === "themes") renderPicker($("#view"), false);
+  else if (v === "balance") renderBalance();
+  else if (v === "upg") renderUpgrades();
+  else if (v === "pull") renderPull();
+  else if (v === "compare") renderCompare();
+  else renderExport();
+}
+
+function maybeFor(pile) {
+  return [...state.bans].map((n) => DB.byName.get(n.toLowerCase())).filter((c) => c && OWNED.has(c.name) && pileOf(c) === pile);
+}
+
+// ---------- cube views: whole list, images, or one color pile at a time ----------
+const CUBE_MODES = [["list", "List"], ["images", "Images"], ["color", "By color"]];
+function cubeSwitch() {
+  const hint = { list: "Every card in the cube. Tap a name to see the card.", images: "Every card in the cube as images. Tap one to enlarge it.", color: "One color at a time, with its curve, next-best cards and maybe pile." }[state.cubeMode];
+  return `<div class="row cubebar"><div class="seg viewseg" role="group" aria-label="Cube view">${CUBE_MODES.map(([k, l]) => `<button type="button" data-cubemode="${k}" aria-pressed="${state.cubeMode === k}">${l}</button>`).join("")}</div><span class="why">${hint}</span></div>`;
+}
+function cubeGroups() {
+  // either-side cards appear once, under the color of their front face
+  const all = uniqueCards().map(([p, c]) => [c.split ? c.split[0] : p, c]);
+  return PILES.map((p) => [p, all.filter(([q]) => q === p).map(([, c]) => c)]).filter((g) => g[1].length);
+}
+function listRow(c) {
+  return `<li class="lrow"><button type="button" class="lname" data-zoom="${esc(c.name)}" title="See ${esc(c.name)}">${pips(c.cost)}<span>${esc(c.name)}</span></button><button class="x" type="button" data-cut="${esc(c.name)}" aria-label="Cut ${esc(c.name)}" title="Move to the maybe pile">×</button></li>`;
+}
+function renderCube() {
+  if (!CUBE_MODES.some(([k]) => k === state.cubeMode)) state.cubeMode = "list";
+  if (state.cubeMode === "color") { renderPile(); $("#view").insertAdjacentHTML("afterbegin", cubeSwitch()); return; }
+  const groups = cubeGroups();
+  const sub = (h, l) => `<h5 class="tgroup"><span>${esc(h)}</span><span>${l.length}</span></h5>`;
+  const head = (p, list) => `<h4><span class="duo"><i style="background:var(--m${p})"></i></span>${CNAME[p]} <span class="price">${list.length}</span></h4>`;
+  const body = state.cubeMode === "list"
+    ? `<div class="cubelist">${groups.map(([p, list]) => `<section style="--pc:var(--m${p})">${head(p, list)}${pileGroups(p, list).map(([h, l]) => `${sub(h, l)}<ul>${l.map(listRow).join("")}</ul>`).join("")}</section>`).join("")}</div>`
+    : groups.map(([p, list]) => `<section class="shelf cubeimgs">${head(p, list)}${pileGroups(p, list).map(([h, l]) => `${sub(h, l)}<div class="tiles small">${l.map((c) => tile(c, "", "", false, true)).join("")}</div>`).join("")}</section>`).join("");
+  $("#view").innerHTML = cubeSwitch() + body;
+}
+function cutCard(n) { remember("cut " + n); state.pins.delete(n); state.bans.add(n); saveSettings(); rebuild(); toast("Moved " + n + " to the maybe pile", true); }
+// The card-type groups inside one pile; shared by every cube view.
+function pileGroups(p, picked) {
+  const sortMV = (a, b) => a.cmc - b.cmc || a.name.localeCompare(b.name);
+  const byName = (a, b) => a.name.localeCompare(b.name);
+  let groups;
+  if (p === "L") groups = [["Fixing", picked.filter((c) => c.fixing).sort(byName)], ["Utility", picked.filter((c) => !c.fixing).sort(byName)]];
+  else if (p === "M") groups = PAIRS.map((pr) => [pr + " · " + themeName(pairTheme(pr)), picked.filter((c) => pairOf(c) === pr && c.colors.length <= 2).sort(sortMV)]).concat([["Three or more colors", picked.filter((c) => c.colors.length > 2).sort(sortMV)]]);
+  else groups = [["Creatures", picked.filter((c) => c.isCreature).sort(sortMV)], ["Spells and other", picked.filter((c) => !c.isCreature).sort(sortMV)]];
+  return groups.filter((g) => g[1].length);
+}
+function renderPile() {
+  const p = state.pile; const { picked, bench } = CUBE.piles[p];
+  const s = pileStats(picked);
+  const groups = pileGroups(p, picked);
+  const max = Math.max(1, ...s.curve);
+  const curve = p === "L" ? "" : `
+    <div class="curve" aria-label="Mana curve">${s.curve.map((n) => `<div style="height:${(n / max) * 100}%"><span>${n || ""}</span></div>`).join("")}</div>
+    <div class="curvelbl">${["0", "1", "2", "3", "4", "5", "6+"].map((x) => `<span>${x}</span>`).join("")}</div>`;
+  const fx = fixingStats();
+  const maybe = maybeFor(p);
+  $("#view").innerHTML = `<div class="pileview" style="--pc:var(--m${p})">
+    <section>
+      <div class="row" style="justify-content:space-between"><h2>${CNAME[p]}</h2>
+      <div class="stats">${p === "L"
+        ? `<span><b>${fx.fix}</b> fixing lands</span><span class="${fx.pct < 10 ? "off" : ""}"><b>${fx.pct.toFixed(0)}%</b> of the cube (aim for 10–20%)</span>`
+        : `<span><b>${s.n}</b> cards</span><span><b>${s.cre}</b> creatures</span><span><b>${s.rem}</b> removal or counters</span><span>avg mana value <b>${s.avg.toFixed(2)}</b></span>`}</div></div>
+      ${curve}
+      ${groups.filter((g) => g[1].length).map(([h, list]) => `<div class="group"><h4><span>${esc(h)}</span><span>${list.length}</span></h4><ul class="cards">${list.map((c) => cardRow(c)).join("")}</ul></div>`).join("") || `<p class="empty">No cards from your collection fit this pile yet.</p>`}
+    </section>
+    <aside class="side">
+      <div class="box">
+        <h3>Next best from your collection</h3>
+        <p class="why">Add one and the weakest pick in this pile moves to the maybe pile.</p>
+        ${bench.length ? `<ul class="cards">${bench.slice(0, 12).map((c) => cardRow(c, "bench")).join("")}</ul>` : `<p class="empty">Nothing else in your collection fits here.</p>`}
+      </div>
+      <div class="box">
+        <h3>Maybe pile</h3>
+        <p class="why">Cards you cut wait here. Nothing is permanent, so restore any of them at any time.</p>
+        ${maybe.length ? `<ul class="cards">${maybe.map((c) => cardRow(c, "maybe")).join("")}</ul>` : `<p class="empty">Empty. Use × on a card to move it here.</p>`}
+      </div>
+      ${UNMATCHED.length ? `<details class="box"><summary>${UNMATCHED.length} names not recognized</summary><p class="why">Tokens, art cards and misspellings end up here.</p><pre class="out">${esc(UNMATCHED.slice(0, 200).join("\n"))}</pre></details>` : ""}
+    </aside></div>`;
+}
+
+// ---------- theme picker ----------
+const SECTIONS = ["W", "U", "B", "R", "G", "C"];
+let THEME_BAR = 0;
+function sectionPool(pool, sec) { return pool.filter((c) => !c.isLand && (sec === "C" ? c.colors === "" : c.colors === sec || (c.split && c.split.includes(sec)))); }
+function singleWant() { return Math.max(3, Math.round(state.perColor * 0.12)); }
+function sectionThemes(pool, sec) {
+  const mine = sectionPool(pool, sec);
+  const tribes = {};
+  if (sec !== "C") for (const c of mine) {
+    for (const t of c.sub) (tribes[t] = tribes[t] || { m: 0, p: 0 }).m++;
+    for (const t of c.pay) (tribes[t] = tribes[t] || { m: 0, p: 0 }).p++;
+  }
+  const keys = Object.keys(THEMES).concat(Object.keys(tribes).filter((t) => tribes[t].p >= 2 && tribes[t].m + tribes[t].p >= 4).map((t) => "tribe:" + t));
+  const opts = keys.map((key) => {
+    const fits = mine.filter((c) => themeFits(c, key)).sort((a, b) => b.base - a.base);
+    const good = fits.filter((c) => c.base >= THEME_BAR).length;
+    const tribe = key.startsWith("tribe:");
+    const b = baseRate(sec, key); const lift = b && mine.length ? (fits.length / mine.length) / b : 1;
+    const pays = tribe ? tribes[key.slice(6)].p : 0;
+    const strength = tribe ? good * (Math.min(pays, 8) / 6) : good * Math.sqrt(Math.max(0.3, Math.min(lift, 3)));
+    return { key, fits, good, strength };
+  }).filter((o) => o.fits.length >= 3 && o.good >= 1);
+  opts.sort((a, b) => b.strength - a.strength || b.good - a.good);
+  return opts;
+}
+function pairCombos(pool) {
+  const L = state.likes; const out = [];
+  for (const p of PAIRS) {
+    const A = sectionPool(pool, p[0]), B = sectionPool(pool, p[1]);
+    const G = pool.filter((c) => !c.isLand && pairOf(c) === p);
+    const keys = (THEME_INFO[p] ? THEME_INFO[p].opts : []).filter((o) => !o.tribe || o.pays >= 2).map((o) => o.key);
+    for (const key of keys) {
+      if (L[p[0]][key] === -1 || L[p[1]][key] === -1) continue;
+      const pick = (list) => list.filter((c) => themeFits(c, key)).sort((a, b) => b.base - a.base);
+      const a = pick(A), b = pick(B), g = pick(G);
+      const ga = a.filter((c) => c.base >= THEME_BAR).length, gb = b.filter((c) => c.base >= THEME_BAR).length, gg = g.filter((c) => c.base >= THEME_BAR).length;
+      if (ga + gb + gg < 4) continue;
+      const likes = (L[p[0]][key] === 1) + (L[p[1]][key] === 1);
+      const score = (Math.min(ga, gb) * 2 + Math.max(ga, gb) + gg * 2) * (likes === 2 ? 1.6 : likes === 1 ? 1.25 : 1) + (L.M[p + "|" + key] === 1 ? 1000 : 0);
+      out.push({ p, key, a, b, g, ga, gb, gg, score, likes, active: pairTheme(p) === key });
+    }
+  }
+  out.sort((x, y) => y.score - x.score);
+  // Most suggested first. Keep the list varied: at most two themes per pair and three pairs per theme, unless liked.
+  const perPair = {}; const perKey = {}; const shown = [];
+  for (const o of out) {
+    const keep = L.M[o.p + "|" + o.key] === 1 || o.likes > 0;
+    if (!keep && ((perPair[o.p] || 0) >= 2 || (perKey[o.key] || 0) >= 3)) continue;
+    perPair[o.p] = (perPair[o.p] || 0) + 1; perKey[o.key] = (perKey[o.key] || 0) + 1;
+    shown.push(o);
+    if (shown.length >= 14) break;
+  }
+  return shown;
+}
+function likeOf(sec, key) { return (state.likes[sec] || {})[key] || 0; }
+function thumbs(sec, key, label) {
+  const v = likeOf(sec, key);
+  return `<div class="thumbs"><button type="button" data-like="${sec}" data-key="${esc(key)}" data-val="1" aria-pressed="${v === 1}" aria-label="Like ${esc(label)}" title="Build toward this">👍</button></div>`;
+}
+function pkgList(cards, limit) {
+  const shown = cards.slice(0, limit);
+  return `<ul>${shown.map((c) => `<li title="${esc(c.name)}">${pips(c.cost)}${CUBE && CUBE.inCube.has(c.name) ? `<b>${esc(c.name)}</b>` : esc(c.name)}</li>`).join("")}</ul>` + (cards.length > limit ? `<div class="more">and ${cards.length - limit} more</div>` : "");
+}
+function themeRow(sec, o, max, want) {
+  const k = sec + "|" + o.key; const open = state.openTheme === k; const v = likeOf(sec, o.key); const name = themeName(o.key);
+  const pct = Math.max(4, Math.min(100, (o.strength / max) * 100));
+  return `<div class="trow ${v === 1 ? "liked" : v === -1 ? "disliked" : ""}">
+    <button type="button" class="tname" data-open="${esc(k)}" aria-expanded="${open}"><span class="tt">${esc(name)}</span>${o.good < want ? `<span class="thin">thin</span>` : ""}</button>
+    <div class="tbar" aria-hidden="true"><div style="width:${pct}%"></div></div>
+    ${thumbs(sec, o.key, name)}
+  </div>`;
+}
+function renderPicker(el, inWizard) {
+  const pool = CUBE ? CUBE.pool : [];
+  const want = singleWant();
+  const secs = SECTIONS.map((sec) => {
+    const opts = sectionThemes(pool, sec);
+    const max = Math.max(1, ...opts.map((o) => o.strength));
+    const top = opts.slice(0, 8), more = opts.slice(8);
+    const keepOpen = more.some((o) => state.openTheme === sec + "|" + o.key || likeOf(sec, o.key));
+    return `<section class="sec" style="--pc:var(--m${sec})"><h3>${sec === "C" ? "Colorless" : CNAME[sec]} <span>${opts.length} themes</span></h3>
+      ${top.map((o) => themeRow(sec, o, max, want)).join("") || `<p class="empty">No themes with enough cards yet.</p>`}
+      ${more.length ? `<details ${keepOpen ? "open" : ""}><summary>${more.length} thinner themes</summary>${more.map((o) => themeRow(sec, o, max, want)).join("")}</details>` : ""}
+    </section>`;
+  }).join("");
+  const combos = pairCombos(pool);
+  const cmax = Math.max(1, ...combos.map((o) => o.ga + o.gb + o.gg));
+  const comboRows = combos.map((o) => {
+    const k = "M|" + o.p + "|" + o.key; const open = state.openTheme === k; const v = likeOf("M", o.p + "|" + o.key);
+    const label = `${o.p} ${themeName(o.key)}`;
+    const why = o.likes === 2 ? "both colors liked" : o.likes === 1 ? "one color liked" : "";
+    return `<div class="trow ${v === 1 ? "liked" : v === -1 ? "disliked" : ""}" style="--pc:var(--m${o.p[0]})">
+      <button type="button" class="tname" data-open="${esc(k)}" aria-expanded="${open}"><span class="duo"><i style="background:var(--m${o.p[0]})"></i><i style="background:var(--m${o.p[1]})"></i></span><span class="tt">${esc(label)}</span>${why ? `<span class="thin" style="color:var(--accent)">${why}</span>` : ""}</button>
+      <div class="tbar" aria-hidden="true"><div style="width:${Math.min(100, ((o.ga + o.gb + o.gg) / cmax) * 100)}%;background:linear-gradient(90deg,var(--m${o.p[0]}),var(--m${o.p[1]}))"></div></div>
+      ${thumbs("M", o.p + "|" + o.key, label)}
+    </div>`;
+  }).join("");
+  const standouts = pool.filter((c) => !c.isLand && c.colors.length >= 2 && !c.held).sort((a, b) => b.base - a.base).slice(0, 12);
+  el.innerHTML = `<div class="picker">
+    ${inWizard ? wizTop(4) + `<h1 class="wiz-q">Pick the themes you like</h1><p class="wiz-sub">Themes are listed strongest to thinnest for your collection. Tap a theme to see its cards, and 👍 the ones you want to build toward. Anything you leave alone is up to the tool.</p>`
+      : `<p class="why" style="max-width:70ch">${state.themeMode === "none" ? `Your cube is set to no themes, so likes here won't change it. <button class="btn small" type="button" data-themed="1">Use themes</button>` : "👍 the themes you want to build toward; anything you leave alone is up to the tool. Tap a theme to see its cards. Changes rebuild the cube right away."}</p>`}
+    <div class="pick-grid">${secs}</div>
+    <section class="sec" style="--pc:var(--mM)">
+      <h3>Multicolor <span>pairs suggested from your likes</span></h3>
+      <p class="why">Each pair can share a theme across its two colors, glued together by gold cards. Like themes in single colors and matching pairs rise to the top.</p>
+      ${comboRows || `<p class="empty">Like a few themes above to see pairs.</p>`}
+      <h3 style="margin-top:10px">Standout gold cards <span>always in the running</span></h3>
+      <p class="why">Half of each pair's gold slots go to the strongest cards whatever their theme. Star any you want guaranteed.</p>
+      <ul class="cards" style="columns:2 260px;column-gap:16px">${standouts.map((c) => `<li class="card" style="break-inside:avoid">${starBtn(c)}<span class="nm">${pips(c.cost)}<a href="${sfLink(c)}" target="_blank" rel="noopener">${esc(c.name)}</a></span><span></span><span></span></li>`).join("")}</ul>
+    </section>
+    ${inWizard ? `<div class="wiz-nav"><button class="btn" type="button" data-wiz="back">Back</button><span></span></div>
+      <div class="sticky-go"><button class="btn primary" type="button" data-wiz="finish">Build my cube</button></div>` : ""}
+  </div>`;
+}
+
+// ---------- question flow ----------
+const Q_POWER = [
+  ["pauper", "Pauper", "Commons only. Cheap to build, easy to learn, and games stay close."],
+  ["casual", "Casual", "Fun, fair cards. Fast mana and other draft-warping cards stay out."],
+  ["powerful", "Powerful", "Your strongest cards, fast mana and all. Big swings and fast games."],
+];
+// [key, label, drafters the cube is sized for, description]
+const Q_SIZE = [
+  ["2-4", "2 to 4 players", 4, ""],
+  ["5-8", "5 to 8 players", 8, ""],
+  ["9-10", "9 or 10 players", 10, ""],
+  ["11-12", "11 or 12 players", 12, ""],
+  ["unsure", "Not sure", 0, "Start with 180 cards to learn the process. Growing a cube is easier than shrinking one."],
+];
+// Each drafter opens 45 cards. A bigger cube leaves cards out of each draft, so drafts vary more.
+const Q_VARIETY = [
+  ["tight", "Concentrated", 1, "Every card gets opened each draft. Themes come together reliably and you learn the cube fast."],
+  ["some", "Some variety", 1.5, "About a third of the cube sits out each draft, so drafts feel different."],
+  ["lots", "Lots of variety", 2, "Half the cube sits out each draft. The most replay value, and common for big 8-player cubes."],
+];
+function layoutFor(size) {
+  return { size, perColor: Math.round(size * 0.139), perPair: Math.max(1, Math.round(size * 0.011)), lands: Math.round(size * 0.122) };
+}
+const Q_STYLE = [
+  ["none", "balanced", "No themes, balanced power", "Good cards without the outliers, so no single card decides a game."],
+  ["none", "max", "No themes, max power", "Your strongest cards, balanced by color and curve."],
+  ["themed", "balanced", "Themed, balanced power", "Pick themes for each color and trim the outliers. Drafts reward building toward a plan."],
+  ["themed", "max", "Themed, max power", "Pick themes, then your strongest cards that fit them go in first."],
+];
+function wizTop(n) {
+  const dots = [1, 2, 3, 4].slice(0, state.themeMode === "themed" || n === 4 ? 4 : 3).map((i) => `<i class="${i <= n ? "on" : ""}"></i>`).join("");
+  return `<div class="wiz-top"><span>Building from <b>${esc(SRC)}</b> · ${OWNED ? OWNED.size.toLocaleString() : 0} unique cards · <button type="button" data-wiz="file">Use a different file</button></span><span class="steps-dots" aria-label="Step ${n}">${dots}</span></div>`;
+}
+function choice(attrs, title, desc, pressed, extra) {
+  return `<button type="button" class="choice" ${attrs} aria-pressed="${pressed}"><b>${esc(title)}</b>${extra ? `<small>${extra}</small>` : ""}${desc ? `<span>${esc(desc)}</span>` : ""}</button>`;
+}
+function showWizard(on) {
+  document.querySelector(".layout").classList.toggle("focus", on);
+  $("#wizard").hidden = !on; $("#app").hidden = on;
+}
+function renderWizard() {
+  const w = $("#wizard"); const st = state.step;
+  if (st === "themes") { renderPicker(w, true); return; }
+  if (st === "q1") {
+    w.innerHTML = wizTop(1) + `<h1 class="wiz-q">How strong should your cube be?</h1>
+      <div class="choices">${Q_POWER.map(([k, t, d]) => choice(`data-power="${k}"`, t, d, state.answered && state.power === k)).join("")}</div>
+      <div class="wiz-nav"><span></span>${state.answered ? `<button class="btn" type="button" data-wiz="cancel">Back to my cube</button>` : ""}</div>`;
+  } else if (st === "q2") {
+    const opts = Q_SIZE.slice();
+    w.innerHTML = wizTop(2) + `<h1 class="wiz-q">How many people usually draft?</h1>
+      <p class="wiz-sub">Each drafter opens three 15-card packs, so every player needs at least 45 cards in the cube.</p>
+      <div class="choices">${opts.map(([k, t, n, d]) => choice(`data-drafters="${k}"`, t, d, state.answered && state.drafters === k, k === "unsure" ? "180 cards" : `${n * 45}+ cards`)).join("")}</div>
+      <div class="wiz-nav"><button class="btn" type="button" data-wiz="back">Back</button></div>`;
+  } else if (st === "q2b") {
+    const row = Q_SIZE.find((x) => x[0] === state.drafters); const players = row[2];
+    const pool = CUBE ? CUBE.poolSize : 0;
+    w.innerHTML = wizTop(2) + `<h1 class="wiz-q">Same cards every draft, or more variety?</h1>
+      <p class="wiz-sub">Up to ${players} players open ${players * 45} cards per draft. A bigger cube leaves some out each time, so no two drafts look alike, but any one theme shows up less reliably.</p>
+      <div class="choices">${Q_VARIETY.map(([k, t, m, d]) => { const n = Math.round(players * 45 * m); const thin = pool && pool < n * 1.4;
+        return choice(`data-variety="${k}"`, t, d + (thin ? " Your collection is thin for this size." : ""), state.answered && state.variety === k, `${n} cards`); }).join("")}</div>
+      <div class="wiz-nav"><button class="btn" type="button" data-wiz="back">Back</button></div>`;
+  } else {
+    w.innerHTML = wizTop(3) + `<h1 class="wiz-q">How should your cube play?</h1>
+      <p class="wiz-sub">Themes give each color pair a plan to draft toward. Balanced power holds back the very strongest cards so games stay close.</p>
+      <div class="choices two">${Q_STYLE.map(([m, pw, t, d]) => choice(`data-style="${m}|${pw}"`, t, d, state.answered && state.themeMode === m && state.powerMode === pw)).join("")}</div>
+      <div class="wiz-nav"><button class="btn" type="button" data-wiz="back">Back</button></div>`;
+  }
+}
+function startWizard(fresh) {
+  if (fresh) { state.answered = false; state.likes = { W: {}, U: {}, B: {}, R: {}, G: {}, C: {}, M: {} }; state.pins.clear(); state.bans.clear(); }
+  state.step = "q1"; showWizard(true); renderWizard(); window.scrollTo(0, 0);
+}
+function finishWizard() {
+  state.answered = true; state.step = "main"; state.view = "pile"; state.openTheme = "";
+  saveSettings(); showWizard(false); rebuild(); window.scrollTo(0, 0);
+}
+function onWizardClick(e) {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.dataset.power) { state.power = t.dataset.power; state.step = "q2"; renderWizard(); return; }
+  if (t.dataset.drafters) {
+    const k = t.dataset.drafters; state.drafters = k;
+    if (k === "unsure") { Object.assign(state, layoutFor(180)); state.variety = ""; }
+    else { state.step = "q2b"; renderWizard(); return; }
+    syncControls(); state.step = "q3"; renderWizard(); return;
+  }
+  if (t.dataset.variety) {
+    const v = Q_VARIETY.find((x) => x[0] === t.dataset.variety); const players = Q_SIZE.find((x) => x[0] === state.drafters)[2];
+    state.variety = v[0]; Object.assign(state, layoutFor(Math.round(players * 45 * v[2])));
+    syncControls(); state.step = "q3"; renderWizard(); return;
+  }
+  if (t.dataset.style) {
+    const [m, pw] = t.dataset.style.split("|"); state.themeMode = m; state.powerMode = pw;
+    if (m === "none") { finishWizard(); return; }
+    state.step = "themes"; saveSettings(); rebuild(); renderWizard(); window.scrollTo(0, 0); return;
+  }
+  const w = t.dataset.wiz;
+  if (w === "back") { state.step = { q2: "q1", q2b: "q2", q3: state.variety ? "q2b" : "q2", themes: "q3" }[state.step] || "q1"; renderWizard(); }
+  else if (w === "finish") finishWizard();
+  else if (w === "cancel") { state.step = "main"; showWizard(false); rebuild(); }
+  else if (w === "file") $("#file").click();
+}
+function onPickerClick(e) {
+  const like = e.target.closest("[data-like]");
+  if (like) {
+    const sec = like.dataset.like, key = like.dataset.key, val = +like.dataset.val;
+    remember("like on " + themeName(key.includes("|") ? key.split("|")[1] : key));
+    if (state.likes[sec][key] === val) delete state.likes[sec][key]; else state.likes[sec][key] = val;
+    saveSettings(); rebuild(); if (state.step === "themes") renderWizard();
+    if (state.openTheme) renderPanel();
+    return true;
+  }
+  const open = e.target.closest("[data-open]");
+  if (open) { openPanel(open.dataset.open); return true; }
+  const th = e.target.closest("[data-themed]");
+  if (th) { state.themeMode = "themed"; saveSettings(); rebuild(); return true; }
+  return false;
+}
+// ---------- card images ----------
+let SPRITES = null;      // bundled sprite sheets for the owner's collection (private build)
+let DIRECT_IMG = false;  // can the page load images from Scryfall directly?
+async function loadImages() {
+  await new Promise((res) => {
+    const im = new Image(); const t = setTimeout(res, 3000);
+    im.onload = () => { DIRECT_IMG = true; clearTimeout(t); res(); }; im.onerror = () => { clearTimeout(t); res(); };
+    im.src = "https://cards.scryfall.io/small/front/8/e/8ee443cc-e17a-493b-9c93-1f9e141a30e4.jpg";
+  });
+}
+function cardArt(c, back) {
+  const sp = SPRITES && SPRITES.cards[c.name + (back ? "|back" : "")];
+  if (sp) {
+    const { cols, rows } = SPRITES; const col = sp[1] % cols, row = Math.floor(sp[1] / cols);
+    return `<span class="im" role="img" aria-label="${esc(c.name)}" style="background-image:url(img/sheet-${String(sp[0]).padStart(2, "0")}.jpg);background-size:${cols * 100}% ${rows * 100}%;background-position:${(col / (cols - 1)) * 100}% ${(row / (rows - 1)) * 100}%"></span>`;
+  }
+  if (DIRECT_IMG && c.img) return `<img loading="lazy" alt="${esc(c.name)}" src="https://cards.scryfall.io/small/${back ? "back" : "front"}/${c.img[0]}/${c.img[1]}/${c.img}.jpg">`;
+  return `<span class="txt" style="--pc:var(--m${pileOf(c)})">${pips(c.cost)}<b>${esc(c.name)}</b><span class="why">${esc(c.type)}</span></span>`;
+}
+function tile(c, badge, themeKey, back, cut) {
+  const inCube = SHOW_IN_CUBE && CUBE && CUBE.inCube.has(c.name);
+  return `<div class="tile ${inCube ? "in" : ""}"><button type="button" class="zbtn" data-zoom="${esc(c.name)}" data-side="${back ? "back" : "front"}" ${themeKey ? `data-zkey="${esc(themeKey)}"` : ""} title="Enlarge ${esc(c.name)}">${cardArt(c, back)}</button>` +
+    `${badge ? `<span class="badge">${badge}</span>` : ""}${starBtn(c)}${flipBtn(c, "on-tile")}` +
+    (themeKey ? `<button type="button" class="tx" data-tout="${esc(c.name)}" data-tkey="${esc(themeKey)}" aria-label="Remove ${esc(c.name)} from ${esc(themeName(themeKey))}" title="Not part of this theme">×</button>` : "") +
+    (cut ? `<button type="button" class="tx" data-cut="${esc(c.name)}" aria-label="Cut ${esc(c.name)}" title="Move to the maybe pile">×</button>` : "") +
+    `<span class="cap">${inCube ? "● " : ""}${esc(c.name)}</span></div>`;
+}
+
+// ---------- theme view ----------
+function themeCards(key, cards, extra) {
+  // Payoffs: cards that reward the theme. Power: the strongest cards that fit. Support: the rest, plus helpers.
+  const role = THEME_ROLES[key] || {};
+  const isPay = key.startsWith("tribe:") ? (c) => c.pay.includes(key.slice(6))
+    : role.pay ? (c) => (c.themes & role.pay) !== 0 : role.pay2 ? (c) => (c.t2 & role.pay2) !== 0 : null;
+  const fits = cards.filter((c) => themeFits(c, key)).sort((a, b) => b.base - a.base);
+  const pays = isPay ? fits.filter(isPay) : [];
+  // Top row: the 12 strongest cards in the theme, making room for its 4 best payoffs.
+  // Weak payoffs drop to Support instead of crowding out strong cards.
+  const bestPays = pays.slice(0, 4);
+  const top = [...bestPays, ...fits.filter((c) => !bestPays.includes(c)).slice(0, 12 - bestPays.length)].sort((a, b) => b.base - a.base);
+  const rest = fits.filter((c) => !top.includes(c));
+  const helpers = role.sup ? extra.filter((c) => !fits.includes(c) && role.sup(c)).sort((a, b) => b.base - a.base).slice(0, 12) : [];
+  return { top, payset: new Set(pays.map((c) => c.name)), support: [...rest, ...helpers].sort((a, b) => b.base - a.base).slice(0, 36), total: fits.length, more: Math.max(0, rest.length + helpers.length - 36) };
+}
+function openPanel(k) { state.openTheme = k; renderPanel(); document.body.style.overflow = "hidden"; $("#panel .panel-close")?.focus(); }
+function closePanel() { state.openTheme = ""; $("#panel").hidden = true; document.body.style.overflow = ""; }
+function renderPanel() {
+  const k = state.openTheme; if (!k || !CUBE) { closePanel(); return; }
+  const parts = k.split("|"); const pool = CUBE.pool;
+  let title, sec, key, likeSec, likeKey, cards, extra, dots, stat;
+  if (parts[0] === "M") {
+    const p = parts[1]; key = parts[2]; likeSec = "M"; likeKey = p + "|" + key;
+    cards = pool.filter((c) => !c.isLand && (pairOf(c) === p || c.colors === p[0] || c.colors === p[1] || (c.split && c.split.some((x) => p.includes(x)))));
+    extra = cards; title = `${p} ${themeName(key)}`;
+    dots = `<span class="duo"><i style="background:var(--m${p[0]})"></i><i style="background:var(--m${p[1]})"></i></span>`;
+  } else {
+    sec = parts[0]; key = parts[1]; likeSec = sec; likeKey = key;
+    cards = sectionPool(pool, sec); extra = cards; title = `${sec === "C" ? "Colorless" : CNAME[sec]} · ${themeName(key)}`;
+    dots = `<span class="duo"><i style="background:var(--m${sec})"></i></span>`;
+  }
+  const tc = themeCards(key, cards, extra);
+  const v = likeOf(likeSec, likeKey);
+  let body;
+  if (parts[0] === "M") {
+    // Pair view: the gold cards that could fill this pair's slots on top, then each color's support below.
+    const p = parts[1];
+    const gold = cards.filter((c) => pairOf(c) === p).sort((a, b) => b.base - a.base);
+    const goldFit = gold.filter((c) => themeFits(c, key));
+    const topGold = goldFit.length ? goldFit : gold.slice(0, 8);
+    const mono = (col) => cards.filter((c) => !pairOf(c) && (c.colors === col || (c.split && c.split.includes(col))) && themeFits(c, key)).sort((a, b) => b.base - a.base);
+    const shelf = (col) => { const list = mono(col); return `<section class="shelf"><h3>${CNAME[col]} support <span>${list.length} ${CNAME[col].toLowerCase()} cards fit</span></h3>
+      <div class="tiles small">${list.slice(0, 24).map((c) => tile(c, "", key, backFor(c, col))).join("") || `<p class="empty">No ${CNAME[col].toLowerCase()} cards fit this theme.</p>`}</div>
+      ${list.length > 24 ? `<p class="why" style="margin-top:6px">and ${list.length - 24} more</p>` : ""}</section>`; };
+    body = `<section class="shelf"><h3>${p} gold cards <span>${goldFit.length ? "multicolor cards for this pair that fit the theme" : `none of your ${p} gold cards fit ${esc(themeName(key))}; these are your strongest ${p} gold cards`}</span></h3>
+      <div class="tiles">${topGold.map((c) => tile(c, tc.payset.has(c.name) ? "payoff" : "", goldFit.length ? key : "")).join("") || `<p class="empty">You don't own any ${p} gold cards yet.</p>`}</div></section>
+      ${shelf(p[0])}${shelf(p[1])}`;
+  } else {
+    body = `    <section class="shelf"><h3>Payoffs and power cards <span>${tc.payset.size ? "cards that reward the theme, plus its strongest cards" : "the strongest cards in this theme"}</span></h3>
+      <div class="tiles">${tc.top.map((c) => tile(c, tc.payset.has(c.name) ? "payoff" : "", key, backFor(c, sec))).join("") || `<p class="empty">Nothing here yet.</p>`}</div></section>
+    <section class="shelf"><h3>Support <span>cards that help the theme work</span></h3>
+      <div class="tiles small">${tc.support.map((c) => tile(c, "", key, backFor(c, sec))).join("") || `<p class="empty">No other cards.</p>`}</div>
+      ${tc.more ? `<p class="why" style="margin-top:6px">and ${tc.more} more</p>` : ""}</section>`;
+  }
+  $("#panelBox").innerHTML = `
+    <div class="panel-head">
+      <div><h2 id="panelTitle">${dots}${esc(title)}</h2>
+        <div class="stats"><span><b>${tc.total}</b> of your cards fit</span></div></div>
+      <div class="row">
+        <div class="thumbs big"><button type="button" data-like="${likeSec}" data-key="${esc(likeKey)}" data-val="1" aria-pressed="${v === 1}">👍 <span>Build toward this</span></button></div>
+        <button type="button" class="panel-close" data-close="1" aria-label="Close">×</button>
+      </div>
+    </div>
+    ${body}
+    ${(state.themeOut[key] || []).length ? `<details class="shelf"><summary>Removed from ${esc(themeName(key))} (${state.themeOut[key].length})</summary>
+      <ul class="cards" style="margin-top:6px;columns:2 220px">${state.themeOut[key].map((n) => `<li class="card" style="grid-template-columns:minmax(0,1fr) auto;break-inside:avoid"><span class="nm">${esc(n)}</span><button type="button" class="x add" data-tback="${esc(n)}" data-tkey="${esc(key)}" aria-label="Put ${esc(n)} back" title="Put back">↺</button></li>`).join("")}</ul></details>` : ""}
+    <p class="why">Tap a card to enlarge it. × takes a card out of this theme; it stays in your collection.</p>`;
+  $("#panel").hidden = false;
+}
+// ---------- card zoom ----------
+let TEXT = null;
+async function getText() {
+  if (TEXT) return TEXT;
+  try { const r = await fetch("text.json"); TEXT = r.ok ? await r.json() : {}; } catch (e) { TEXT = {}; }
+  return TEXT;
+}
+function symbols(text) {
+  return esc(text).replace(/\{[^}]+\}/g, (m) => pips(m).replace('class="cost"', 'class="cost inl"')).replace(/\n/g, "<br>");
+}
+function bigArt(c, back) {
+  if (!(SPRITES && SPRITES.cards[c.name + (back ? "|back" : "")]) && DIRECT_IMG && c.img) return `<img alt="${esc(c.name)}" src="https://cards.scryfall.io/normal/${back ? "back" : "front"}/${c.img[0]}/${c.img[1]}/${c.img}.jpg">`;
+  return cardArt(c, back);
+}
+const flipBtn = (c, where) => (c.flags & F.dfc) ? `<button type="button" class="flip ${where}" data-flip="${esc(c.name)}" aria-label="Flip ${esc(c.name)}" title="Show the other side">⇄</button>` : "";
+async function openZoom(name, themeKey, back) {
+  const c = DB.byName.get(name.toLowerCase()); if (!c) return;
+  state.zoom = { name, themeKey: themeKey || "", back: !!back };
+  renderZoom(c, null);
+  const t = await getText();
+  if (state.zoom && state.zoom.name === name) renderZoom(c, t[c.name] || null);
+}
+function renderZoom(c, faces) {
+  const z = state.zoom; const inCube = CUBE && CUBE.inCube.has(c.name); const starred = state.pins.has(c.name);
+  const facesHtml = faces ? faces.map((f) => `<div class="face"><h3>${esc(f[0])} ${pips(f[1])}</h3><div class="ztype">${esc(f[2])}</div>${f[3] ? `<p>${symbols(f[3])}</p>` : ""}${f[4] ? `<div class="zpt">${esc(f[4])}</div>` : ""}</div>`).join("")
+    : `<div class="face"><h3>${esc(c.name)} ${pips(c.cost)}</h3><div class="ztype">${esc(c.type)}</div><p class="why">Loading card text…</p></div>`;
+  const cubes = cubeCount(c);
+  const facts = [
+    SHOW_IN_CUBE ? (inCube ? "In your cube now" : "Not in your cube right now") : "",
+    `Played in ${cubes} of the ${state.power} reference cubes`,
+    c.l17 >= 0 ? `On 17lands it won more than ${c.l17}% of its set's cards when drawn` : "",
+  ].filter(Boolean);
+  $("#zoomBox").innerHTML = `<button type="button" class="panel-close" data-zclose="1" aria-label="Close">×</button>
+    <div class="zoom-grid">
+      <div class="zoom-side"><div class="zoom-img">${bigArt(c, z.back)}</div>${(c.flags & F.dfc) ? `<button type="button" class="btn small" data-flip="${esc(c.name)}">⇄ Show ${z.back ? "front" : "back"}</button>` : ""}</div>
+      <div class="zoom-text">${facesHtml}
+        <ul class="zfacts">${facts.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>
+        <div class="row">
+          <button type="button" class="btn small" data-star="${esc(c.name)}" aria-pressed="${starred}">${starred ? "★ Starred" : "☆ Star: always include"}</button>
+          ${z.themeKey ? (OUTSETS[z.themeKey] && OUTSETS[z.themeKey].has(c.name)
+            ? `<button type="button" class="btn small" data-tback="${esc(c.name)}" data-tkey="${esc(z.themeKey)}">Put back in ${esc(themeName(z.themeKey))}</button>`
+            : `<button type="button" class="btn small" data-tout="${esc(c.name)}" data-tkey="${esc(z.themeKey)}">Remove from ${esc(themeName(z.themeKey))}</button>`)
+            : (CUBE && CUBE.inCube.has(c.name) && !state.pins.has(c.name) ? `<button type="button" class="btn small" data-cut="${esc(c.name)}">Move to maybe pile</button>` : "")}
+          <a class="btn small" href="${sfLink(c)}" target="_blank" rel="noopener">Open on Scryfall</a>
+        </div>
+      </div>
+    </div>`;
+  $("#zoom").hidden = false;
+  $("#zoomBox .panel-close").focus();
+}
+function closeZoom() { state.zoom = null; $("#zoom").hidden = true; }
+
+// ---------- undo ----------
+const UNDO = [];
+function remember(label) {
+  UNDO.push({ label, likes: JSON.parse(JSON.stringify(state.likes)), pins: [...state.pins], bans: [...state.bans], themeOut: JSON.parse(JSON.stringify(state.themeOut)), cubes: savedCubes() });
+  if (UNDO.length > 40) UNDO.shift();
+}
+function undo() {
+  const u = UNDO.pop(); if (!u) { toast("Nothing to undo"); return; }
+  state.likes = u.likes; state.pins = new Set(u.pins); state.bans = new Set(u.bans); state.themeOut = u.themeOut; syncOut();
+  if (u.cubes) putCubes(u.cubes);
+  saveSettings(); rerender(); toast("Undone: " + u.label);
+}
+// Rebuild and redraw whatever is open.
+function rerender() {
+  rebuild(); renderFind();
+  if (state.step === "themes") renderWizard();
+  if (state.openTheme) renderPanel();
+  if (state.zoom) { const c = DB.byName.get(state.zoom.name.toLowerCase()); if (c) renderZoom(c, TEXT ? TEXT[c.name] : null); }
+}
+function themeOut(name, key, out) {
+  remember((out ? "removed " : "put back ") + name);
+  const list = new Set(state.themeOut[key] || []);
+  out ? list.add(name) : list.delete(name);
+  if (list.size) state.themeOut[key] = [...list]; else delete state.themeOut[key];
+  syncOut(); saveSettings(); rerender();
+  toast(out ? `Removed ${name} from ${themeName(key)}` : `Put ${name} back in ${themeName(key)}`, true);
+}
+
+function renderAnswers() {
+  const power = (Q_POWER.find((x) => x[0] === state.power) || [])[1];
+  const variety = (Q_VARIETY.find((x) => x[0] === state.variety) || [])[1];
+  const size = ((Q_SIZE.find((x) => x[0] === state.drafters) || [])[1] || "Custom") + (variety ? " · " + variety.toLowerCase() : "");
+  const style = Q_STYLE.find((x) => x[0] === state.themeMode && x[1] === state.powerMode);
+  const likes = Object.values(state.likes).reduce((a, o) => a + Object.values(o).filter((v) => v === 1).length, 0);
+  $("#answers").innerHTML = `<div><span>Power</span>${esc(power || "")}</div><div><span>Drafters</span>${esc(size)} · ${state.size}</div><div><span>Style</span>${esc(style ? style[2] : "")}</div>` +
+    (state.themeMode === "themed" ? `<div><span>Liked themes</span>${likes}</div>` : "");
+}
+
+function renderBalance() {
+  const rows = PILES.map((p) => {
+    const s = pileStats(CUBE.piles[p].picked); const L = p === "L";
+    return `<tr><td><span class="duo"><i style="background:var(--m${p})"></i></span> ${CNAME[p]}</td><td>${s.n}</td><td>${L ? "" : s.cre}</td><td>${L ? "" : s.rem}</td><td>${L ? "" : s.avg.toFixed(2)}</td><td>${L ? "" : s.curve.slice(0, 3).reduce((a, b) => a + b, 0)}</td><td>${L ? "" : s.curve.slice(5).reduce((a, b) => a + b, 0)}</td></tr>`;
+  }).join("");
+  const all = PILES.flatMap((p) => CUBE.piles[p].picked);
+  const fx = fixingStats();
+  const count = (bit) => all.filter((c) => c.roles & bit).length;
+  const above = CUBE.above.slice(0, 20); const weak = CUBE.weak.slice(0, 20);
+  $("#view").innerHTML = `<div style="display:grid;gap:18px">
+    <div class="scroll"><table class="t"><thead><tr><th>Pile</th><th>Cards</th><th>Creatures</th><th>Removal</th><th>Avg MV</th><th>MV 0–2</th><th>MV 6+</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="stats"><span class="${fx.pct < 10 ? "off" : ""}"><b>${fx.fix}</b> fixing lands (${fx.pct.toFixed(0)}%)</span><span><b>${count(R.ramp)}</b> ramp</span><span><b>${count(R.draw)}</b> card draw</span><span><b>${count(R.sweeper)}</b> sweepers</span><span><b>${count(R.tutor)}</b> tutors</span></div>
+    <div class="arch">
+      <div class="archcard"><h3>Above your power level</h3>
+        <p class="why">${CUBE.above.length ? `Held back to fit your settings${state.power === "casual" ? ": fast mana, Commander's game changers and cards only powered cubes play" : ""}${state.powerMode === "balanced" ? ", plus the very strongest cards because you chose balanced power" : ""}. Star one to put it in.` : "Nothing is held back with your current settings."}</p>
+        ${above.length ? `<ul class="cards">${above.map((c) => cardRow(c, "find")).join("")}</ul>` : `<p class="empty">Nothing held back.</p>`}</div>
+      <div class="archcard"><h3>Below your power level</h3>
+        <p class="why">Cards in the build that no reference cube plays. They usually got in to fill a gap. Lucky Paper's advice is to replace weak outliers first, since they rarely matter in a game.</p>
+        ${weak.length ? `<ul class="cards">${weak.map((c) => cardRow(c)).join("")}</ul>` : `<p class="empty">No weak outliers.</p>`}</div>
+    </div>
+    <p class="why" style="max-width:65ch">Card strength comes from how many popular ${state.power} cubes on CubeCobra run the card, how well it won in its own set's drafts on 17lands, and EDHREC popularity as a tiebreaker. Each color aims for a set creature share, a removal count and a curve that peaks at two mana. Blue counts counterspells as removal.</p>
+  </div>`;
+}
+
+function upgradeList() {
+  const out = {}; for (const p of PILES) out[p] = [];
+  for (const c of DB.rows) {
+    if (cubeCount(c) < 2 || OWNED.has(c.name)) continue;
+    if (state.noCmdr && (c.flags & F.commander)) continue;
+    if (state.power === "pauper" && !(c.flags & F.pauper)) continue;
+    if (state.power === "casual" && isAboveBand(c)) continue;
+    if (c.usd == null || c.usd > state.maxPrice) continue;
+    if (!state.tri && c.colors.length >= 3) continue;
+    const p = pileOf(c);
+    if (p === "L") continue; // lands handled by the fixing list
+    if (out[p].length < 40) out[p].push(c);
+  }
+  for (const p of PILES) out[p].sort((a, b) => cubeCount(b) - cubeCount(a) || a.usd - b.usd);
+  return out;
+}
+// cheapest unowned dual land for each pair that's short of duals, plus a land-fetcher
+function fixingUpgrades() {
+  const fx = fixingStats(); const need = dualsPerPair(); const out = [];
+  for (const p of PAIRS) {
+    const missing = need - fx.byPair[p];
+    if (missing <= 0) continue;
+    const opts = DB.rows.filter((c) => c.isLand && landPair(c) === p && !OWNED.has(c.name) && c.usd != null && !(c.flags & F.commander))
+      .sort((a, b) => a.usd - b.usd || cubeCount(b) - cubeCount(a));
+    out.push(...opts.slice(0, Math.min(missing, 2)).map((c) => ({ c, why: p })));
+  }
+  const fetchers = DB.rows.filter((c) => (c.flags & F.fetch) && c.nColors === 0 && !OWNED.has(c.name) && c.usd != null && c.usd < 1).sort((a, b) => a.usd - b.usd).slice(0, 2);
+  out.push(...fetchers.map((c) => ({ c, why: "any" })));
+  return out;
+}
+function upgradeCard(c, why) {
+  return `<li class="card"><span></span><span class="nm">${pips(c.cost)}<a href="${sfLink(c)}" target="_blank" rel="noopener">${esc(c.name)}</a>${why ? ` <span class="tag">${why}</span>` : ""}</span><span class="price">$${c.usd.toFixed(2)}</span><a class="tag" href="${tcgLink(c)}" target="_blank" rel="noopener">buy</a></li>`;
+}
+function renderUpgrades() {
+  const ups = upgradeList();
+  const fixes = fixingUpgrades();
+  const lists = PILES.map((p) => [p, ups[p].slice(0, 8)]).filter((x) => x[1].length);
+  const all = fixes.map((f) => f.c).concat(lists.flatMap((x) => x[1]));
+  const totalCost = all.reduce((a, c) => a + c.usd, 0);
+  const mass = aff("https://www.tcgplayer.com/massentry?productline=Magic&c=" + encodeURIComponent(all.map((c) => "1 " + c.name).join("||")));
+  const fx = fixingStats();
+  $("#view").innerHTML = `<div style="display:grid;gap:14px">
+    <div class="row" style="justify-content:space-between;align-items:start">
+      <p class="why" style="max-width:60ch">Lucky Paper's advice is to playtest before buying. When you do buy, these are the cheapest cards that fill real gaps: fixing first, then staples that ${state.power} cubes play most. Prices are TCGplayer market prices from Scryfall.</p>
+      <div class="field" style="min-width:220px"><label for="maxPrice">Max price per card</label><output>$${state.maxPrice}</output><input type="range" id="maxPrice" min="0.5" max="20" step="0.5" value="${state.maxPrice}"></div>
+    </div>
+    <div class="row"><a class="btn primary" href="${mass}" target="_blank" rel="noopener">Buy all ${all.length} on TCGplayer · about $${totalCost.toFixed(0)}</a><span class="aff">Affiliate link</span></div>
+    <div class="arch">
+      <div class="archcard" style="--pc:var(--mL)"><div class="hd"><span class="duo"><i style="background:var(--mL)"></i></span><h3>Fixing</h3></div>
+        <p class="why">You have ${fx.fix} fixing lands (${fx.pct.toFixed(0)}%). Guildgates and tapped duals are fine for cube, and a few Evolving Wilds help any deck.</p>
+        ${fixes.length ? `<ul class="cards">${fixes.map((f) => upgradeCard(f.c, f.why)).join("")}</ul>` : `<p class="empty">Every color pair has its duals.</p>`}</div>
+      ${lists.map(([p, list]) => `<div class="archcard"><div class="hd"><span class="duo"><i style="background:var(--m${p})"></i></span><h3>${CNAME[p]}</h3></div>
+        <ul class="cards">${list.map((c) => upgradeCard(c)).join("")}</ul></div>`).join("")}
+    </div>
+  </div>`;
+}
+
+// ---------- pull list ----------
+const TYPE_ORDER = ["Creature", "Planeswalker", "Instant", "Sorcery", "Enchantment", "Artifact", "Battle", "Land"];
+function mainType(c) { return TYPE_ORDER.find((t) => c.type.includes(t)) || "Other"; }
+function where(c) {
+  const l = LOCS.get(c.name);
+  if (!l || !l.size) return "";
+  const list = [...l].sort(natural);
+  return list[0] + (list.length > 1 ? ` +${list.length - 1}` : "");
+}
+function firstBinder(c) { const l = LOCS.get(c.name); return l && l.size ? [...l].sort(natural)[0] : "No binder"; }
+const pullSort = (a, b) => PILES.indexOf(pileOf(a)) - PILES.indexOf(pileOf(b)) || TYPE_ORDER.indexOf(mainType(a)) - TYPE_ORDER.indexOf(mainType(b)) || a.cmc - b.cmc || a.name.localeCompare(b.name);
+// Returns [[groupLabel, pileForDot, cards]]
+function sortedForPull() {
+  const all = uniqueCards().map(([, c]) => c);
+  if (state.pullBy === "binder" && LOCS.size) {
+    const groups = new Map();
+    for (const c of all) { const b = firstBinder(c); (groups.get(b) || groups.set(b, []).get(b)).push(c); }
+    return [...groups.keys()].sort(natural).map((b) => [b, null, groups.get(b).sort(pullSort)]);
+  }
+  return PILES.map((p) => [CNAME[p], p, uniqueCards().filter(([q]) => q === p).map(([, c]) => c).sort(pullSort)]);
+}
+function pullText() {
+  return sortedForPull().filter((g) => g[2].length).map(([label, , list]) => `${label} (${list.length})\n` + list.map((c) => {
+    const loc = state.pullBy === "binder" ? (SETS.get(c.name) ? [...SETS.get(c.name)].join(", ") : "") : (where(c) || (SETS.get(c.name) ? [...SETS.get(c.name)].join(", ") : ""));
+    return `[ ] ${c.name}` + (loc ? `  (${loc})` : "");
+  }).join("\n")).join("\n\n");
+}
+// ---------- saved cubes and the comparer ----------
+// Saved cubes live in this browser (localStorage): { id, name, date, from: "build" | "import", names: [...] }.
+function savedCubes() { return recall("cubes", []); }
+function putCubes(list) { store("cubes", list); }
+(function migrateOldSave() {
+  const old = recall("savedCube", null);
+  if (old && old.names && !savedCubes().length) putCubes([{ id: "c" + Date.now(), name: "My paper cube", date: old.date || "", from: "build", names: old.names }]);
+  if (old) try { localStorage.removeItem("shoebox3:savedCube"); } catch (e) {}
+})();
+const today = () => new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+function addCube(name, names, from) {
+  remember((from === "build" ? "saved " : "imported ") + name);
+  const id = "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  putCubes([{ id, name, date: today(), from, names }, ...savedCubes()]);
+  state.cmpB = id; if (!state.cmpA || state.cmpA === id) state.cmpA = "build";
+  return id;
+}
+// Text from CubeCobra's export, a CSV with a name column, or a plain list -> unique card names.
+function namesFromText(text) {
+  const seen = new Set(), out = [];
+  // CubeCobra's CSV marks maybeboard cards; leave those out.
+  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
+  const head = parseCSVLine(lines[0] || "", ",").map((h) => h.toLowerCase());
+  const mb = head.indexOf("maybeboard");
+  if (mb >= 0) text = [lines[0], ...lines.slice(1).filter((l) => l.trim() && parseCSVLine(l, ",")[mb] !== "true")].join("\n");
+  for (const [nm] of parseCollection(text)) {
+    if (!nm || BASICS.has(nm.toLowerCase())) continue;
+    const c = resolveName(nm); const n = c ? c.name : nm.trim();
+    if (!seen.has(n.toLowerCase())) { seen.add(n.toLowerCase()); out.push(n); }
+  }
+  return out;
+}
+function cubeCobraId(v) {
+  v = v.trim();
+  const m = v.match(/cubecobra\.com\/cube\/(?:[a-z]+\/)?([^/?#\s]+)/i);
+  if (m) return m[1];
+  return /^[\w-]{2,}$/.test(v) ? v : "";
+}
+async function importCubeCobra(v) {
+  const id = cubeCobraId(v);
+  const msg = $("#cmpMsg");
+  if (!id) { msg.textContent = "That doesn't look like a CubeCobra link. Paste the cube's address, like cubecobra.com/cube/overview/yourcube."; return; }
+  msg.textContent = "Loading from CubeCobra…";
+  try {
+    const r = await fetch("https://cubecobra.com/cube/api/cubelist/" + encodeURIComponent(id));
+    if (!r.ok) throw new Error(r.status);
+    const names = namesFromText(await r.text());
+    if (!names.length) throw new Error("empty");
+    addCube("CubeCobra: " + id, names, "import"); renderCompare();
+    toast("Imported " + names.length + " cards", true);
+  } catch (e) {
+    msg.innerHTML = `Couldn't load that cube from here. On CubeCobra, open the cube, choose <b>Export → Card Names (.txt)</b>, then add the file below.`;
+    $("#cmpMore").open = true;
+  }
+}
+function importText(text, name) {
+  const names = namesFromText(text);
+  if (!names.length) { $("#cmpMsg").textContent = "No card names found in that."; return; }
+  addCube(name || "Imported cube", names, "import"); renderCompare();
+  toast("Imported " + names.length + " cards", true);
+}
+function cubeById(id) {
+  if (id === "build") return { id, name: "This build", names: cubeNames() };
+  return savedCubes().find((x) => x.id === id) || null;
+}
+function cmpRow(c) {
+  const own = OWNED.has(c.name); const w = own ? where(c) : "";
+  return `<li class="lrow"><button type="button" class="lname" data-zoom="${esc(c.name)}" title="See ${esc(c.name)}">${pips(c.cost)}<span>${esc(c.name)}</span></button>` +
+    (own ? `<span class="set">${esc(w)}</span>` : `<a class="buy" href="${tcgLink(c)}" target="_blank" rel="sponsored noopener" title="You don't own this. Buy on TCGplayer (affiliate link)">Buy</a>`) + `</li>`;
+}
+function cmpColumn(title, names, copyId) {
+  const cards = [], other = [];
+  for (const n of names) { const c = DB.byName.get(n.toLowerCase()); c ? cards.push(c) : other.push(n); }
+  const unowned = cards.filter((c) => !OWNED.has(c.name)).length;
+  const body = PILES.map((p) => [p, cards.filter((c) => pileOf(c) === p)]).filter((g) => g[1].length).map(([p, list]) =>
+    `<section style="--pc:var(--m${p})"><h4><span class="duo"><i style="background:var(--m${p})"></i></span>${CNAME[p]} <span class="price">${list.length}</span></h4>` +
+    pileGroups(p, list).map(([h, l]) => `<h5 class="tgroup"><span>${esc(h)}</span><span>${l.length}</span></h5><ul>${l.map(cmpRow).join("")}</ul>`).join("") + `</section>`).join("") +
+    (other.length ? `<section><h4>Not recognized <span class="price">${other.length}</span></h4><ul>${other.map((n) => `<li class="lrow"><span class="lname"><span>${esc(n)}</span></span></li>`).join("")}</ul></section>` : "");
+  return `<div class="cmpcol"><div class="row" style="justify-content:space-between"><h3>${esc(title)} <span class="price">${names.length}</span></h3>${names.length ? `<button class="btn small" type="button" data-cmpcopy="${copyId}">Copy names</button>` : ""}</div>
+    ${unowned ? `<p class="why">${unowned} you don't own. Buy links are affiliate links.</p>` : ""}
+    ${names.length ? `<div class="cubelist one">${body}</div>` : `<p class="empty">Nothing.</p>`}</div>`;
+}
+function renderCompare() {
+  const list = savedCubes();
+  const opts = [{ id: "build", name: "This build", names: null }, ...list];
+  if (!opts.some((o) => o.id === state.cmpA)) state.cmpA = "build";
+  if (!opts.some((o) => o.id === state.cmpB) || state.cmpB === state.cmpA) state.cmpB = (opts.find((o) => o.id !== state.cmpA) || {}).id || "";
+  const sel = (key) => `<select data-cmpsel="${key}" aria-label="${key === "cmpA" ? "First cube" : "Second cube"}">${opts.map((o) => `<option value="${o.id}" ${state[key] === o.id ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select>`;
+  const saved = `<div class="box"><div class="row" style="justify-content:space-between"><h3>Your saved cubes</h3><button class="btn small primary" type="button" id="saveBuild">Save this build</button></div>
+    ${list.length ? `<ul class="cubes">${list.map((x) => `<li><input class="cname" value="${esc(x.name)}" data-rename="${x.id}" aria-label="Cube name"><span class="price">${x.names.length} cards</span><span class="why">${x.from === "build" ? "Saved build" : "Imported"}${x.date ? " · " + esc(x.date) : ""}</span><button class="x" type="button" data-cubedel="${x.id}" aria-label="Delete ${esc(x.name)}" title="Delete">×</button></li>`).join("")}</ul>`
+      : `<p class="why">Nothing saved yet. Import the cube you play now to see what this build would change, or save this build to come back to it.</p>`}
+    <div class="importrow"><input id="ccLink" type="text" placeholder="CubeCobra link" aria-label="CubeCobra link or cube ID"><button class="btn small" type="button" id="ccGo">Import</button></div>
+    <details id="cmpMore"><summary>Or add a file or paste a list</summary>
+      <p class="hint">A CubeCobra export (Card Names .txt or CSV), or any list with one card per line.</p>
+      <div class="row"><input type="file" id="cubeFile" accept=".txt,.csv,.dck,.dec,text/plain,text/csv"></div>
+      <textarea id="cubePaste" rows="5" placeholder="Lightning Bolt&#10;Counterspell&#10;…" aria-label="Paste a cube list"></textarea>
+      <div class="row"><input id="cubePasteName" type="text" placeholder="Name (optional)" aria-label="Name for the pasted cube"><button class="btn small" type="button" id="cubePasteGo">Add list</button></div>
+    </details>
+    <p class="why" id="cmpMsg" role="status"></p>
+    <p class="hint">Saved in this browser only. Clearing site data removes them; keep your cube's real home on CubeCobra.</p></div>`;
+  let cmp = "";
+  const A = cubeById(state.cmpA), B = state.cmpB ? cubeById(state.cmpB) : null;
+  if (A && B) {
+    const a = new Set(A.names.map((n) => n.toLowerCase())), b = new Set(B.names.map((n) => n.toLowerCase()));
+    const onlyA = A.names.filter((n) => !b.has(n.toLowerCase())), onlyB = B.names.filter((n) => !a.has(n.toLowerCase()));
+    const both = A.names.filter((n) => b.has(n.toLowerCase()));
+    state.cmpLists = { a: onlyA, b: onlyB };
+    const hint = A.id === "build" ? `To turn <b>${esc(B.name)}</b> into this build, add the left column and take out the right.` : B.id === "build" ? `To turn <b>${esc(A.name)}</b> into this build, add the right column and take out the left.` : "";
+    cmp = `<div class="row cmpbar">${sel("cmpA")}<span class="why">compared with</span>${sel("cmpB")}</div>
+      <div class="stats" style="margin:8px 0"><span><b>${both.length}</b> in both</span><span><b>${onlyA.length}</b> only in ${esc(A.name)}</span><span><b>${onlyB.length}</b> only in ${esc(B.name)}</span></div>
+      ${hint ? `<p class="why">${hint}</p>` : ""}
+      <div class="cmpgrid">${cmpColumn("Only in " + A.name, onlyA, "a")}${cmpColumn("Only in " + B.name, onlyB, "b")}</div>`;
+  } else cmp = `<p class="why">Save or import a cube above to compare it with this build.</p>`;
+  $("#view").innerHTML = `<div style="display:grid;gap:16px">${saved}<div>${cmp}</div></div>`;
+}
+function onCompareClick(e) {
+  const t = e.target;
+  if (t.id === "saveBuild") { addCube(`${CUBE.total}-card build`, cubeNames(), "build"); renderCompare(); toast("Saved this build", true); return true; }
+  if (t.id === "ccGo") { importCubeCobra($("#ccLink").value); return true; }
+  if (t.id === "cubePasteGo") { importText($("#cubePaste").value, $("#cubePasteName").value.trim()); return true; }
+  const d = t.closest("[data-cubedel]");
+  if (d) { const x = savedCubes().find((y) => y.id === d.dataset.cubedel); if (x) { remember("deleted " + x.name); putCubes(savedCubes().filter((y) => y.id !== x.id)); renderCompare(); toast("Deleted " + x.name, true); } return true; }
+  const cc = t.closest("[data-cmpcopy]");
+  if (cc) { const l = state.cmpLists[cc.dataset.cmpcopy] || []; copy(l.join("\n"), "Copied " + l.length + " names"); return true; }
+  return false;
+}
+function onCompareChange(e) {
+  const t = e.target;
+  if (t.dataset.cmpsel) { state[t.dataset.cmpsel] = t.value; if (state.cmpA === state.cmpB) state[t.dataset.cmpsel === "cmpA" ? "cmpB" : "cmpA"] = ""; renderCompare(); return true; }
+  if (t.dataset.rename) { const list = savedCubes(); const x = list.find((y) => y.id === t.dataset.rename); if (x && t.value.trim()) { x.name = t.value.trim(); putCubes(list); renderCompare(); } return true; }
+  if (t.id === "cubeFile" && t.files[0]) { const f = t.files[0]; f.text().then((txt) => importText(txt, f.name.replace(/\.[^.]+$/, ""))); return true; }
+  return false;
+}
+function renderPull() {
+  const pulled = new Set(recall("pulled", []));
+  const hasLoc = LOCS.size > 0;
+  if (!hasLoc) state.pullBy = "color";
+  const byBinder = state.pullBy === "binder";
+  const groups = sortedForPull();
+  const done = [...CUBE.inCube].filter((n) => pulled.has(n)).length;
+  const intro = byBinder
+    ? "Grouped by the binder each card lives in, so you can pull a whole binder at once. Inside each binder, cards run by color, type and mana value."
+    : "Sorted by color, then card type, then mana value, the order Lucky Paper suggests for keeping a paper cube and its online list in sync." + (hasLoc ? " The right column shows which binder holds each card." : " Set codes come from your collection file.");
+  $("#view").innerHTML = `<div style="display:grid;gap:14px">
+    <div class="row" style="justify-content:space-between;align-items:start">
+      <p class="why" style="max-width:60ch">${intro} Tick cards off as you pull them.</p>
+      <div class="row">${hasLoc ? `<div class="seg" role="group" aria-label="Group pull list"><button type="button" data-pullby="color" aria-pressed="${!byBinder}" style="padding:4px 10px">By color</button><button type="button" data-pullby="binder" aria-pressed="${byBinder}" style="padding:4px 10px">By binder</button></div>` : ""}
+      <span class="stats"><span><b>${done}</b> of ${CUBE.total} pulled</span></span></div>
+    </div>
+    <div class="row"><button class="btn small" type="button" id="copyPull">Copy as checklist</button>
+      <button class="btn small" type="button" id="clearPull">Untick all</button>
+      <button class="btn small" type="button" data-goto="compare">Compare with your paper cube</button></div>
+    <div class="pull">${groups.filter((g) => g[2].length).map(([label, p, list]) => {
+      let lastType = "", lastPile = "";
+      const dot = p ? `<span class="duo"><i style="background:var(--m${p})"></i></span>` : "";
+      return `<section><h4>${dot}${esc(label)} <span class="price">${list.length}</span></h4>` + list.map((c) => {
+        let head = "";
+        if (byBinder) { const pc = pileOf(c); if (pc !== lastPile) head = `<h5>${CNAME[pc]}</h5>`; lastPile = pc; }
+        else { const t = mainType(c); if (t !== lastType) head = `<h5>${t}</h5>`; lastType = t; }
+        const right = byBinder ? (SETS.get(c.name) ? [...SETS.get(c.name)][0] : "") : (where(c) || (SETS.get(c.name) ? [...SETS.get(c.name)].slice(0, 2).join(" ") : ""));
+        return `${head}<label><input type="checkbox" data-pull="${esc(c.name)}" ${pulled.has(c.name) ? "checked" : ""}><span class="mv">${c.isLand ? "" : c.cmc}</span><span class="pn">${esc(c.name)}</span><span class="set">${esc(right)}</span></label>`;
+      }).join("") + `</section>`;
+    }).join("")}</div>
+  </div>`;
+}
+
+// ---------- playtest and export ----------
+function uniqueCards() { const seen = new Set(); return PILES.flatMap((p) => CUBE.piles[p].picked.map((c) => [p, c])).filter(([, c]) => !seen.has(c.name) && seen.add(c.name)); }
+function cubeNames() { return uniqueCards().map(([, c]) => c.name); }
+function cubeCSV() {
+  const head = "name,CMC,Type,Color,Color Category,tags";
+  const lines = uniqueCards().map(([p, c]) => [c.name, c.cmc, c.type, c.colors, c.split ? c.split.map((x) => CNAME[x]).join(" and ") : CNAME[p], roleTags(c).join(";")].map((x) => `"${String(x).replace(/"/g, '""')}"`).join(","));
+  return [head, ...lines].join("\n");
+}
+function dealPack() {
+  const all = uniqueCards().map(([, c]) => c);
+  const a = all.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  PACK = a.slice(0, 15);
+}
+function renderExport() {
+  if (!PACK) dealPack();
+  const txt = cubeNames().join("\n");
+  $("#view").innerHTML = `<div style="display:grid;gap:22px;max-width:900px">
+    <section style="display:grid;gap:10px">
+      <div class="row" style="justify-content:space-between"><h2>Sample pack</h2><button class="btn" type="button" id="deal">Deal another</button></div>
+      <p class="why">Lucky Paper calls playtesting the most important step. Open a few packs and ask: would I be happy taking any of these first? Is there a clear signal toward a theme?</p>
+      <div class="pack">${PACK.map((c) => `<div style="--pc:var(--m${pileOf(c)})" title="${esc(c.name)}">${pips(c.cost)}${esc(c.name)}</div>`).join("")}</div>
+    </section>
+    <section style="display:grid;gap:10px">
+      <h2>Draft it on CubeCobra</h2>
+      <ol class="steps">
+        <li>Copy the list below.</li>
+        <li>On <a href="https://cubecobra.com" target="_blank" rel="noopener">CubeCobra</a>, create a cube (or open yours) and choose <b>List → Add or remove → Bulk upload</b>, or <b>Replace with bulk upload</b> for an existing cube.</li>
+        <li>Use <b>Playtest → Start a draft</b> to draft against bots before you sleeve anything.</li>
+        <li>For feedback from other designers, share the CubeCobra link in the MTG Cube Talk Discord (linked from <a href="https://luckypaper.co/podcast/099-building-a-cube-from-a-collection/" target="_blank" rel="noopener">Lucky Paper's show notes</a>).</li>
+      </ol>
+      <div class="row"><button class="btn primary" type="button" id="copyList2">Copy ${CUBE.total} card names</button><button class="btn" type="button" id="copyCSV">Copy as CSV</button></div>
+      <pre class="out" id="exportText">${esc(txt)}</pre>
+    </section>
+  </div>`;
+}
+
+// ---------- favorites search ----------
+function renderFind() {
+  const q = $("#find").value.trim().toLowerCase();
+  const ul = $("#findResults");
+  if (!OWNED || !DB) { ul.innerHTML = ""; return; }
+  let list;
+  if (!q) list = [...state.pins].map((n) => DB.byName.get(n.toLowerCase())).filter(Boolean);
+  else list = [...OWNED.keys()].filter((n) => n.toLowerCase().includes(q)).slice(0, 30).map((n) => DB.byName.get(n.toLowerCase())).filter(Boolean);
+  ul.innerHTML = list.length ? list.map((c) => cardRow(c, "find")).join("") : (q ? `<li class="empty">No owned card matches “${esc(q)}”.</li>` : "");
+}
+
+// ---------- events ----------
+function toast(msg, undoable) {
+  const t = $("#toast");
+  t.innerHTML = `<span>${esc(msg)}</span>` + (undoable ? ` <button type="button" data-undo="1">Undo</button>` : "");
+  t.hidden = false;
+  clearTimeout(toast.h); toast.h = setTimeout(() => (t.hidden = true), undoable ? 6000 : 2200);
+}
+async function copy(text, msg) {
+  try { await navigator.clipboard.writeText(text); toast(msg); }
+  catch (e) {
+    const pre = $("#exportText");
+    if (pre) { const r = document.createRange(); r.selectNodeContents(pre); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast("Selected. Press Ctrl+C or Cmd+C to copy."); }
+    else toast("Copy was blocked. Use the Playtest and export tab to select the list.");
+  }
+}
+function syncControls() {
+  for (const k of ["perColor", "perPair", "lands"]) { $("#" + k).value = state[k]; $("#o-" + k).textContent = state[k]; }
+  document.querySelectorAll("#sizes button").forEach((b) => b.setAttribute("aria-pressed", +b.dataset.s === state.size));
+  const gold = state.perPair * 10; const mono = state.perColor * 5;
+  const cl = state.size - mono - gold - state.lands;
+  $("#split").textContent = `${mono} mono + ${gold} gold + ${state.lands} lands + ${Math.max(0, cl)} colorless = ${state.size}`;
+  $("#lands").max = Math.round(state.size * 0.25); $("#perColor").max = Math.floor(state.size / 6);
+}
+function saveSettings() {
+  store("settings", { size: state.size, perColor: state.perColor, perPair: state.perPair, lands: state.lands, noCmdr: state.noCmdr, tri: state.tri, power: state.power, keepCube: state.keepCube, cubeMode: state.cubeMode,
+    themeMode: state.themeMode, powerMode: state.powerMode, drafters: state.drafters, variety: state.variety, themeOut: state.themeOut, answered: state.answered, likes: state.likes });
+  store("pins", [...state.pins]); store("bans", [...state.bans]);
+}
+function setSize(s) { Object.assign(state, layoutFor(s)); syncControls(); saveSettings(); rebuild(); }
+function toggleStar(n) {
+  remember((state.pins.has(n) ? "unstarred " : "starred ") + n);
+  if (state.pins.has(n)) { state.pins.delete(n); toast("Unstarred " + n, true); }
+  else { state.pins.add(n); state.bans.delete(n); toast("Starred " + n + ". It's in the cube.", true); }
+  saveSettings(); rerender();
+}
+
+function wire() {
+  document.querySelectorAll("#sizes button").forEach((b) => b.addEventListener("click", () => setSize(+b.dataset.s)));
+  $("#wizard").addEventListener("click", (e) => {
+    const star = e.target.closest("[data-star]");
+    if (star) { toggleStar(star.dataset.star); renderWizard(); return; }
+    if (!onPickerClick(e)) onWizardClick(e);
+  });
+  $("#changeAnswers").addEventListener("click", () => startWizard(false));
+  const cardActions = (e) => {
+    const z = e.target.closest("[data-zoom]"); if (z) { openZoom(z.dataset.zoom, z.dataset.zkey, z.dataset.side === "back"); return true; }
+    const o = e.target.closest("[data-tout]"); if (o) { themeOut(o.dataset.tout, o.dataset.tkey, true); return true; }
+    const b = e.target.closest("[data-tback]"); if (b) { themeOut(b.dataset.tback, b.dataset.tkey, false); return true; }
+    const star = e.target.closest("[data-star]"); if (star) { toggleStar(star.dataset.star); return true; }
+    const fl = e.target.closest("[data-flip]");
+    if (fl) {
+      const c = DB.byName.get(fl.dataset.flip.toLowerCase());
+      if (fl.closest("#zoom")) { state.zoom.back = !state.zoom.back; renderZoom(c, TEXT ? TEXT[c.name] : null); }
+      else { const b = fl.closest(".tile").querySelector(".zbtn"); const back = b.dataset.side !== "back"; b.dataset.side = back ? "back" : "front"; b.innerHTML = cardArt(c, back); }
+      return true;
+    }
+    return false;
+  };
+  $("#panel").addEventListener("click", (e) => {
+    if (e.target.id === "panel" || e.target.closest("[data-close]")) { closePanel(); return; }
+    if (cardActions(e)) return;
+    onPickerClick(e);
+  });
+  $("#zoom").addEventListener("click", (e) => {
+    if (e.target.id === "zoom" || e.target.closest("[data-zclose]")) { closeZoom(); return; }
+    const cut = e.target.closest("[data-cut]"); if (cut) { closeZoom(); cutCard(cut.dataset.cut); return; }
+    cardActions(e);
+  });
+  $("#toast").addEventListener("click", (e) => { if (e.target.closest("[data-undo]")) { $("#toast").hidden = true; undo(); } });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { if (!$("#zoom").hidden) closeZoom(); else if (!$("#panel").hidden) closePanel(); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); undo(); }
+  });
+  for (const k of ["perColor", "perPair", "lands"]) {
+    $("#" + k).addEventListener("input", (e) => {
+      state[k] = +e.target.value;
+      const fixed = state.perColor * 5 + state.perPair * 10 + state.lands;
+      if (fixed > state.size) state[k] -= fixed - state.size;
+      syncControls();
+      clearTimeout(wire.t); wire.t = setTimeout(() => { saveSettings(); rebuild(); }, 120);
+    });
+  }
+  $("#noCmdr").addEventListener("change", (e) => { state.noCmdr = e.target.checked; saveSettings(); rebuild(); });
+  $("#tri").addEventListener("change", (e) => { state.tri = e.target.checked; saveSettings(); rebuild(); });
+  $("#resetSwaps").addEventListener("click", () => { state.pins.clear(); state.bans.clear(); saveSettings(); rebuild(); renderFind(); toast("Stars and cuts cleared"); });
+  $("#piles").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-pile]"); if (!b) return;
+    state.pile = b.dataset.pile; state.view = "pile"; state.cubeMode = "color"; renderAll();
+  });
+  document.querySelector(".tabs").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-v]"); if (!b) return; state.view = b.dataset.v; renderAll();
+  });
+  $("#notices").addEventListener("click", (e) => {
+    const s = e.target.closest("[data-size]"); if (s) setSize(+s.dataset.size);
+    const g = e.target.closest("[data-goto]"); if (g) { state.view = g.dataset.goto; renderAll(); }
+  });
+  $("#find").addEventListener("input", () => { clearTimeout(wire.f); wire.f = setTimeout(renderFind, 120); });
+  const clickCards = (e) => {
+    const star = e.target.closest("[data-star]"); if (star) { toggleStar(star.dataset.star); return; }
+    const cut = e.target.closest("[data-cut]"); const add = e.target.closest("[data-add]"); const rest = e.target.closest("[data-restore]");
+    if (cut) cutCard(cut.dataset.cut);
+    else if (rest) { const n = rest.dataset.restore; remember("restored " + n); state.bans.delete(n); saveSettings(); rebuild(); toast("Restored " + n, true); }
+    else if (add) {
+      const n = add.dataset.add; remember("added " + n); state.bans.delete(n); state.pins.add(n);
+      const pile = CUBE.piles[state.pile].picked.filter((c) => !state.pins.has(c.name));
+      if (pile.length && state.pile !== "M") { const weakest = pile.reduce((a, b) => (a.base <= b.base ? a : b)); state.bans.add(weakest.name); }
+      saveSettings(); rebuild(); toast("Added " + n, true);
+    }
+  };
+  $("#view").addEventListener("click", (e) => {
+    if (onPickerClick(e)) return;
+    const cm = e.target.closest("[data-cubemode]"); if (cm) { state.cubeMode = cm.dataset.cubemode; saveSettings(); renderView(); return; }
+    if (cardActions(e)) return;
+    clickCards(e);
+    const id = e.target.id;
+    if (id === "copyList2") copy(cubeNames().join("\n"), "Copied " + CUBE.total + " names");
+    if (id === "copyCSV") copy(cubeCSV(), "Copied CSV");
+    if (id === "deal") { dealPack(); renderExport(); }
+    if (id === "copyPull") copy(pullText(), "Copied checklist");
+    const pb = e.target.closest("[data-pullby]"); if (pb) { state.pullBy = pb.dataset.pullby; renderPull(); }
+    if (id === "clearPull") { store("pulled", []); renderPull(); }
+    const g = e.target.closest("[data-goto]"); if (g) { state.view = g.dataset.goto; renderAll(); return; }
+    if (onCompareClick(e)) return;
+  });
+  $("#findResults").addEventListener("click", clickCards);
+  $("#binders").addEventListener("change", (e) => {
+    const cb = e.target.closest("[data-binder]"); if (!cb) return;
+    cb.checked ? state.skipBinders.delete(cb.dataset.binder) : state.skipBinders.add(cb.dataset.binder);
+    binderChanged();
+  });
+  $("#binders").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-binders]"); if (!b) return;
+    state.skipBinders = b.dataset.binders === "all" ? new Set() : new Set(BINDERS.keys());
+    renderBinders(); $("#binders").open = true; binderChanged();
+  });
+  $("#view").addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.id === "ccLink") importCubeCobra(e.target.value); });
+  $("#view").addEventListener("change", (e) => {
+    if (onCompareChange(e)) return;
+    const pull = e.target.closest("[data-pull]");
+    if (pull) {
+      const s = new Set(recall("pulled", []));
+      pull.checked ? s.add(pull.dataset.pull) : s.delete(pull.dataset.pull);
+      store("pulled", [...s]);
+      const done = [...CUBE.inCube].filter((n) => s.has(n)).length;
+      const b = document.querySelector(".pull") && $("#view .stats b"); if (b) b.textContent = done;
+    }
+  });
+  $("#view").addEventListener("input", (e) => {
+    if (e.target.id === "maxPrice") { state.maxPrice = +e.target.value; e.target.previousElementSibling.textContent = "$" + state.maxPrice; clearTimeout(wire.u); wire.u = setTimeout(() => { renderUpgrades(); const r = $("#maxPrice"); if (r) r.focus(); }, 200); }
+  });
+  $("#copyList").addEventListener("click", () => copy(cubeNames().join("\n"), "Copied " + CUBE.total + " names for CubeCobra"));
+
+  const drop = $("#drop"); const file = $("#file");
+  const readFile = (f) => {
+    const r = new FileReader();
+    r.onload = () => { const text = String(r.result); try { localStorage.setItem("shoebox3:collection", text); localStorage.setItem("shoebox3:label", f.name); } catch (e) {} setCollection(text, f.name); startWizard(true); };
+    r.onerror = () => toast("Couldn't read that file. Export it again as CSV and retry.");
+    r.readAsText(f);
+  };
+  file.addEventListener("change", () => file.files[0] && readFile(file.files[0]));
+  drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); file.click(); } });
+  drop.tabIndex = 0;
+  ["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", (e) => { const f = e.dataTransfer.files[0]; if (f) readFile(f); });
+  $("#usePaste").addEventListener("click", () => {
+    const t = $("#paste").value; if (!t.trim()) { toast("Paste at least one card name first"); return; }
+    try { localStorage.setItem("shoebox3:collection", t); localStorage.setItem("shoebox3:label", "Pasted list"); } catch (e) {}
+    setCollection(t, "Pasted list"); startWizard(true);
+  });
+  $("#useSample").addEventListener("click", () => { try { localStorage.removeItem("shoebox3:collection"); } catch (e) {} loadSample(); });
+}
+async function loadSample() {
+  const res = await fetch("sample-collection.csv");
+  setCollection(await res.text(), "Sample collection");
+}
+
+async function start() {
+  const s = recall("settings", null);
+  if (s) Object.assign(state, s);
+  if (!state.likes || !state.likes.M) state.likes = { W: {}, U: {}, B: {}, R: {}, G: {}, C: {}, M: {} };
+  for (const sec of Object.keys(state.likes)) for (const k of Object.keys(state.likes[sec])) if (state.likes[sec][k] !== 1) delete state.likes[sec][k];
+  if (!state.themeOut || typeof state.themeOut !== "object") state.themeOut = {};
+  syncOut();
+  state.pins = new Set(recall("pins", [])); state.bans = new Set(recall("bans", []));
+  $("#noCmdr").checked = state.noCmdr; $("#tri").checked = state.tri;
+  syncControls(); wire();
+  try { await Promise.all([loadDB(), loadImages()]); }
+  catch (e) { $("#loading").textContent = "Card data didn't load. Refresh the page to try again."; return; }
+  $("#loading").hidden = true;
+  let saved = null, label = null;
+  try { saved = localStorage.getItem("shoebox3:collection"); label = localStorage.getItem("shoebox3:label"); } catch (e) {}
+  if (saved) setCollection(saved, label || "Saved collection");
+  else {
+    await loadSample();
+  }
+  if (DEV_START) {
+    Object.assign(state, DEV_START, layoutFor(DEV_START.size), { answered: true, step: "themes" });
+    syncControls(); saveSettings(); rebuild(); showWizard(true); renderWizard();
+  } else if (state.answered) showWizard(false); else startWizard(false);
+}
+start();
+</script>
+
+</body>
+</html>
