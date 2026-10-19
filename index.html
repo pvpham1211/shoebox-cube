@@ -305,7 +305,10 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
 .importrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-bottom: 6px; }
 .importrow input, #cubePasteName, #cubePaste { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); min-width: 0; }
 #cubePaste { width: 100%; box-sizing: border-box; margin: 6px 0; }
-#cmpMore summary { cursor: pointer; font-size: 14px; }
+#cmpMore summary, #cmpBinders summary { cursor: pointer; font-size: 14px; }
+#cmpBinders { margin-bottom: 6px; } #cmpBinders .binderlist { max-height: 220px; overflow: auto; margin: 6px 0; }
+#binderName { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); min-width: 0; }
+.cmpimgs .tiles.small { margin-bottom: 6px; }
 #cmpMore[open] { margin-bottom: 6px; }
 .cmpbar { gap: 8px; align-items: center; }
 .cmpbar select { width: auto; flex: 1 1 220px; font: inherit; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); max-width: 100%; }
@@ -1932,11 +1935,12 @@ function cmpColumn(title, names, copyId) {
   const unowned = cards.filter((c) => !OWNED.has(c.name)).length;
   const body = PILES.map((p) => [p, cards.filter((c) => pileOf(c) === p)]).filter((g) => g[1].length).map(([p, list]) =>
     `<section style="--pc:var(--m${p})"><h4><span class="duo"><i style="background:var(--m${p})"></i></span>${CNAME[p]} <span class="price">${list.length}</span></h4>` +
-    pileGroups(p, list).map(([h, l]) => `<h5 class="tgroup"><span>${esc(h)}</span><span>${l.length}</span></h5><ul>${l.map(cmpRow).join("")}</ul>`).join("") + `</section>`).join("") +
+    pileGroups(p, list).map(([h, l]) => `<h5 class="tgroup"><span>${esc(h)}</span><span>${l.length}</span></h5>` +
+      (state.cmpMode === "images" ? `<div class="tiles small">${l.map((c) => tile(c, OWNED.has(c.name) ? "" : "Not owned", "", backFor(c, p))).join("")}</div>` : `<ul>${l.map(cmpRow).join("")}</ul>`)).join("") + `</section>`).join("") +
     (other.length ? `<section><h4>Not recognized <span class="price">${other.length}</span></h4><ul>${other.map((n) => `<li class="lrow"><span class="lname"><span>${esc(n)}</span></span></li>`).join("")}</ul></section>` : "");
   return `<div class="cmpcol"><div class="row" style="justify-content:space-between"><h3>${esc(title)} <span class="price">${names.length}</span></h3>${names.length ? `<button class="btn small" type="button" data-cmpcopy="${copyId}">Copy names</button>` : ""}</div>
     ${unowned ? `<p class="why">${unowned} you don't own. Buy links are affiliate links.</p>` : ""}
-    ${names.length ? `<div class="cubelist one">${body}</div>` : `<p class="empty">Nothing.</p>`}</div>`;
+    ${names.length ? `<div class="cubelist one ${state.cmpMode === "images" ? "cmpimgs" : ""}">${body}</div>` : `<p class="empty">Nothing.</p>`}</div>`;
 }
 function renderCompare() {
   const list = savedCubes();
@@ -1948,6 +1952,11 @@ function renderCompare() {
     ${list.length ? `<ul class="cubes">${list.map((x) => `<li><input class="cname" value="${esc(x.name)}" data-rename="${x.id}" aria-label="Cube name"><span class="price">${x.names.length} cards</span><span class="why">${x.from === "build" ? "Saved build" : "Imported"}${x.date ? " · " + esc(x.date) : ""}</span><button class="x" type="button" data-cubedel="${x.id}" aria-label="Delete ${esc(x.name)}" title="Delete">×</button></li>`).join("")}</ul>`
       : `<p class="why">Nothing saved yet. Import the cube you play now to see what this build would change, or save this build to come back to it.</p>`}
     <div class="importrow"><input id="ccLink" type="text" placeholder="CubeCobra link" aria-label="CubeCobra link or cube ID"><button class="btn small" type="button" id="ccGo">Import</button></div>
+    ${BINDERS.size > 1 ? `<details id="cmpBinders"><summary>Or use binders from your collection</summary>
+      <p class="hint">If your cube lives in binders, tick them to save it as a cube.</p>
+      <div class="binderlist">${[...BINDERS.keys()].sort(natural).map((b) => `<label class="check"><input type="checkbox" data-cubebinder="${esc(b)}" ${/\bcube\b/i.test(b) ? "checked" : ""}> <span>${esc(b)} <span class="price">${BINDERS.get(b)}</span></span></label>`).join("")}</div>
+      <div class="row"><input id="binderName" type="text" value="My paper cube" aria-label="Name for this cube"><button class="btn small" type="button" id="binderGo">Save as a cube</button></div>
+    </details>` : ""}
     <details id="cmpMore"><summary>Or add a file or paste a list</summary>
       <p class="hint">A CubeCobra export (Card Names .txt or CSV), or any list with one card per line.</p>
       <div class="row"><input type="file" id="cubeFile" accept=".txt,.csv,.dck,.dec,text/plain,text/csv"></div>
@@ -1967,7 +1976,8 @@ function renderCompare() {
     cmp = `<div class="row cmpbar">${sel("cmpA")}<span class="why">compared with</span>${sel("cmpB")}</div>
       <div class="stats" style="margin:8px 0"><span><b>${both.length}</b> in both</span><span><b>${onlyA.length}</b> only in ${esc(A.name)}</span><span><b>${onlyB.length}</b> only in ${esc(B.name)}</span></div>
       ${hint ? `<p class="why">${hint}</p>` : ""}
-      <div class="cmpgrid">${cmpColumn("Only in " + A.name, onlyA, "a")}${cmpColumn("Only in " + B.name, onlyB, "b")}</div>`;
+      <div class="row" style="justify-content:flex-end"><div class="seg viewseg" role="group" aria-label="Compare view">${[["list", "List"], ["images", "Images"]].map(([k, l]) => `<button type="button" data-cmpmode="${k}" aria-pressed="${(state.cmpMode || "list") === k}">${l}</button>`).join("")}</div></div>
+      <div class="cmpgrid">${cmpColumn(A.id === "build" ? "Add to " + B.name : B.id === "build" ? "Take out of " + A.name : "Only in " + A.name, onlyA, "a")}${cmpColumn(A.id === "build" ? "Take out of " + B.name : B.id === "build" ? "Add to " + A.name : "Only in " + B.name, onlyB, "b")}</div>`;
   } else cmp = `<p class="why">Save or import a cube above to compare it with this build.</p>`;
   $("#view").innerHTML = `<div style="display:grid;gap:16px">${saved}<div>${cmp}</div></div>`;
 }
@@ -1978,6 +1988,15 @@ function onCompareClick(e) {
   if (t.id === "cubePasteGo") { importText($("#cubePaste").value, $("#cubePasteName").value.trim()); return true; }
   const d = t.closest("[data-cubedel]");
   if (d) { const x = savedCubes().find((y) => y.id === d.dataset.cubedel); if (x) { remember("deleted " + x.name); putCubes(savedCubes().filter((y) => y.id !== x.id)); renderCompare(); toast("Deleted " + x.name, true); } return true; }
+  const cm = t.closest("[data-cmpmode]"); if (cm) { state.cmpMode = cm.dataset.cmpmode; saveSettings(); renderCompare(); return true; }
+  const bs = t.id === "binderGo";
+  if (bs) {
+    const picked = [...document.querySelectorAll("[data-cubebinder]:checked")].map((x) => x.dataset.cubebinder);
+    if (!picked.length) { $("#cmpMsg").textContent = "Tick at least one binder."; return true; }
+    const seen = new Set(), names = [];
+    for (const [nm, , , binder] of ENTRIES) if (picked.includes(binder)) { const c = resolveName(nm); const n = c ? c.name : nm; if (!BASICS.has(n.toLowerCase()) && !seen.has(n)) { seen.add(n); names.push(n); } }
+    addCube($("#binderName").value.trim() || "My paper cube", names, "import"); renderCompare(); toast("Saved " + names.length + " cards from " + picked.length + " binder" + (picked.length > 1 ? "s" : ""), true); return true;
+  }
   const cc = t.closest("[data-cmpcopy]");
   if (cc) { const l = state.cmpLists[cc.dataset.cmpcopy] || []; copy(l.join("\n"), "Copied " + l.length + " names"); return true; }
   return false;
@@ -2094,7 +2113,7 @@ function syncControls() {
   $("#lands").max = Math.round(state.size * 0.25); $("#perColor").max = Math.floor(state.size / 6);
 }
 function saveSettings() {
-  store("settings", { size: state.size, perColor: state.perColor, perPair: state.perPair, lands: state.lands, noCmdr: state.noCmdr, tri: state.tri, power: state.power, keepCube: state.keepCube, cubeMode: state.cubeMode, combos: state.combos, comboOut: state.comboOut,
+  store("settings", { size: state.size, perColor: state.perColor, perPair: state.perPair, lands: state.lands, noCmdr: state.noCmdr, tri: state.tri, power: state.power, keepCube: state.keepCube, cubeMode: state.cubeMode, cmpMode: state.cmpMode, combos: state.combos, comboOut: state.comboOut,
     themeMode: state.themeMode, powerMode: state.powerMode, drafters: state.drafters, variety: state.variety, themeOut: state.themeOut, answered: state.answered, likes: state.likes });
   store("pins", [...state.pins]); store("bans", [...state.bans]);
 }
