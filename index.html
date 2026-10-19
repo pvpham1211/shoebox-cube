@@ -1097,7 +1097,7 @@ function renderAll() {
   if (total < state.size) notes.push(`<div class="notice warn">Your collection is ${state.size - total} cards short of a ${state.size}-card cube. Try a smaller size, or see Upgrades for cheap cards to fill the gaps.</div>`);
   const fx = fixingStats();
   if (fx.pct < 10) notes.push(`<div class="notice warn">Only ${fx.fix} fixing lands (${fx.pct.toFixed(0)}% of the cube). Cubes usually run 10 to 20%. Upgrades lists the cheapest lands to close the gap.</div>`);
-  if (CUBE.above.length) notes.push(`<div class="notice">${CUBE.above.length} of your strongest cards are held back to keep power even, like ${esc(CUBE.above.slice(0, 2).map((c) => c.name).join(" and "))}. Star any you want anyway. <button type="button" data-goto="balance">See the list</button></div>`);
+  if (CUBE.above.length) notes.push(`<div class="notice">${CUBE.above.length === 1 ? `One of your strongest cards, ${esc(CUBE.above[0].name)}, is held back to keep power even.` : `${CUBE.above.length} of your strongest cards are held back to keep power even, like ${esc(CUBE.above.slice(0, 2).map((c) => c.name).join(" and "))}.`} Star any you want anyway. <button type="button" data-goto="balance">See the list</button></div>`);
   $("#notices").innerHTML = notes.join("");
   $("#piles").innerHTML = PILES.map((p) => {
     const n = wsum(piles[p].picked); const t = target[p];
