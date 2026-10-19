@@ -273,6 +273,15 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
 .cubeimgs .tgroup { justify-content: flex-start; margin: 12px 0 6px; }
 .cubeimgs .tgroup span:last-child, .tgroup span:last-child { font-family: var(--f-mono); font-weight: 400; }
 
+/* combos */
+.combos { list-style: none; margin: 6px 0 10px; padding: 0; display: grid; gap: 6px; }
+.combo { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.combo .pieces { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font-weight: 600; }
+.combo .pieces .lname { padding: 2px 4px; font-weight: 600; }
+.combo .plus { color: var(--muted); }
+.combo .why { grid-column: 1; font-size: 13px; }
+.combo > .btn, .combo > .tag { grid-column: 2; grid-row: 1 / span 2; }
+
 /* compare */
 .cubes { list-style: none; margin: 8px 0 12px; padding: 0; display: grid; gap: 4px; }
 .cubes li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 10px; align-items: center; }
@@ -447,7 +456,7 @@ footer { margin-top: 36px; padding-top: 14px; border-top: 1px solid var(--line);
 
   <footer>
     <div>Shoebox Cube is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.</div>
-    <div>Card data from <a href="https://scryfall.com" target="_blank" rel="noopener">Scryfall</a>, which does not endorse this tool. Card popularity comes from public cube lists on <a href="https://cubecobra.com" target="_blank" rel="noopener">CubeCobra</a>. Draft win rates from <a href="https://www.17lands.com/public_datasets" target="_blank" rel="noopener">17lands</a> public datasets (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="license noopener">CC BY 4.0</a>), converted by this site into per-set rankings. Building approach follows Lucky Paper's <a href="https://luckypaper.co/articles/building-a-cube-from-a-collection/" target="_blank" rel="noopener">Building a Cube from a Collection</a>. <span id="built"></span></div>
+    <div>Card data from <a href="https://scryfall.com" target="_blank" rel="noopener">Scryfall</a>, which does not endorse this tool. Card popularity comes from public cube lists on <a href="https://cubecobra.com" target="_blank" rel="noopener">CubeCobra</a>. Draft win rates from <a href="https://www.17lands.com/public_datasets" target="_blank" rel="noopener">17lands</a> public datasets (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="license noopener">CC BY 4.0</a>), converted by this site into per-set rankings. Combos from <a href="https://commanderspellbook.com" target="_blank" rel="noopener">Commander Spellbook</a>. Building approach follows Lucky Paper's <a href="https://luckypaper.co/articles/building-a-cube-from-a-collection/" target="_blank" rel="noopener">Building a Cube from a Collection</a>. <span id="built"></span></div>
     <div>Your collection never leaves your browser. Some buy links are affiliate links, and purchases through them can earn this site a commission at no cost to you.</div>
     <div>© 2026 Shoebox Cube. All rights reserved. The site's code and design may not be copied or redistributed without permission.</div>
   </footer>
@@ -542,9 +551,16 @@ const state = {
   step: "q1", themeMode: "themed", powerMode: "balanced", drafters: "unsure", variety: "", answered: false,
   likes: { W: {}, U: {}, B: {}, R: {}, G: {}, C: {}, M: {} }, openTheme: "", themeOut: {},
   pins: new Set(), bans: new Set(), themes: {}, pile: "W", view: "pile", maxPrice: 2,
-  skipBinders: new Set(), skipKey: "", pullBy: "color", keepCube: true, cubeMode: "list",
+  skipBinders: new Set(), skipKey: "", pullBy: "color", keepCube: true, cubeMode: "list", combos: "", comboOut: [],
 };
 let DB = null;        // {rows, byName}
+let COMBOS = [];      // known 2-3 card combos: {cards, result, pop, key}, most played first
+async function loadCombos() {
+  try {
+    const r = await fetch("combos.json"); if (!r.ok) return;
+    COMBOS = (await r.json()).combos.map(([cards, result, pop]) => ({ cards, result, pop, key: cards.join(" + ") }));
+  } catch (e) {}
+}
 let OWNED = null;     // Map name -> qty (canonical names)
 let SETS = new Map(); // name -> set codes from the collection file
 let UNMATCHED = [];
@@ -1000,8 +1016,53 @@ function pickLands(pool, n) {
   return { picked: picked.slice(0, Math.max(n, pins.length)), bench: rest.slice(0, 15) };
 }
 
+// Combos you fully own, using only cards the build could pick (owned, not cut, fit your filters).
+function ownedCombos() {
+  if (!DB || !OWNED) return [];
+  const ok = (n) => { const c = DB.byName.get(n.toLowerCase()); return c && OWNED.has(c.name) && !state.bans.has(c.name) && eligible(c); };
+  return COMBOS.filter((k) => k.cards.every(ok));
+}
+const comboCap = () => Math.max(2, Math.round(state.size / 45));
+// The most-played combos first, skipping ones that share a piece with a combo already chosen,
+// so the cube gets several different combos instead of one card with many partners.
+function pickCombos(owned) {
+  const used = new Set(), out = [];
+  for (const k of owned) {
+    if (out.length >= comboCap()) break;
+    if (state.comboOut.includes(k.key) || k.cards.some((n) => used.has(n))) continue;
+    out.push(k); k.cards.forEach((n) => used.add(n));
+  }
+  return out;
+}
+// Builds the cube, then applies the combo answer: "include" puts in your best-known combos with
+// every piece; "none" leaves out one piece (the weakest) of any combo that came together anyway.
 function rebuild() {
   if (!DB || !OWNED) return;
+  const userPins = state.pins, userBans = state.bans;
+  const owned = ownedCombos();
+  let chosen = [], blocked = new Map();
+  try {
+    if (state.combos === "include") {
+      chosen = pickCombos(owned);
+      state.pins = new Set([...userPins, ...chosen.flatMap((k) => k.cards)]);
+      buildOnce();
+    } else if (state.combos === "none") {
+      for (let i = 0; i < 12; i++) {
+        state.bans = new Set([...userBans, ...blocked.keys()]);
+        buildOnce();
+        const live = owned.filter((k) => k.cards.every((n) => CUBE.inCube.has(n)) && !k.cards.every((n) => userPins.has(n)));
+        if (!live.length) break;
+        for (const k of live) {
+          const piece = k.cards.filter((n) => !userPins.has(n)).map((n) => DB.byName.get(n.toLowerCase())).sort((a, b) => a.base - b.base)[0];
+          if (piece) blocked.set(piece.name, k);
+        }
+      }
+    } else buildOnce();
+  } finally { state.pins = userPins; state.bans = userBans; }
+  CUBE.combos = { owned, chosen, blocked: [...blocked].map(([n, k]) => ({ name: n, combo: k })), live: owned.filter((k) => k.cards.every((n) => CUBE.inCube.has(n))) };
+  renderAll();
+}
+function buildOnce() {
   const pool = candidates();
   discoverThemes(pool);
   const buckets = { W: [], U: [], B: [], R: [], G: [], M: [], C: [], L: [] };
@@ -1029,7 +1090,6 @@ function rebuild() {
   const above = pool.filter((c) => c.held && !inCube.has(c.name)).sort((a, b) => (b.cP + b.cC - a.cP - a.cC) || (a.rank - b.rank));
   const weak = PILES.flatMap((p) => piles[p].picked).filter((c) => isWeak(c) && !c.isLand && !state.pins.has(c.name));
   CUBE = { piles, target, total, inCube, above, weak, poolSize: pool.length, pool };
-  renderAll();
 }
 
 // ---------- rendering ----------
@@ -1293,7 +1353,7 @@ function renderPicker(el, inWizard) {
   }).join("");
   const standouts = pool.filter((c) => !c.isLand && c.colors.length >= 2 && !c.held).sort((a, b) => b.base - a.base).slice(0, 12);
   el.innerHTML = `<div class="picker">
-    ${inWizard ? wizTop(4) + `<h1 class="wiz-q">Pick the themes you like</h1><p class="wiz-sub">Themes are listed strongest to thinnest for your collection. Tap a theme to see its cards, and 👍 the ones you want to build toward. Anything you leave alone is up to the tool.</p>`
+    ${inWizard ? wizTop(wizSteps()) + `<h1 class="wiz-q">Pick the themes you like</h1><p class="wiz-sub">Themes are listed strongest to thinnest for your collection. Tap a theme to see its cards, and 👍 the ones you want to build toward. Anything you leave alone is up to the tool.</p>`
       : `<p class="why" style="max-width:70ch">${state.themeMode === "none" ? `Your cube is set to no themes, so likes here won't change it. <button class="btn small" type="button" data-themed="1">Use themes</button>` : "👍 the themes you want to build toward; anything you leave alone is up to the tool. Tap a theme to see its cards. Changes rebuild the cube right away."}</p>`}
     <div class="pick-grid">${secs}</div>
     <section class="sec" style="--pc:var(--mM)">
@@ -1338,8 +1398,13 @@ const Q_STYLE = [
   ["themed", "balanced", "Themed, balanced power", "Pick themes for each color and trim the outliers. Drafts reward building toward a plan."],
   ["themed", "max", "Themed, max power", "Pick themes, then your strongest cards that fit them go in first."],
 ];
+const Q_COMBO = [
+  ["include", "Include combos", "Your {n} best-known combos go in with every piece. Drafting the pieces together is part of the fun, but games can end suddenly."],
+  ["none", "No combos", "Keeps every complete combo out, so games are decided by the draft and the play. Single pieces can still show up."],
+];
+function wizSteps() { return 3 + (ownedCombos().length ? 1 : 0) + (state.themeMode === "themed" ? 1 : 0); }
 function wizTop(n) {
-  const dots = [1, 2, 3, 4].slice(0, state.themeMode === "themed" || n === 4 ? 4 : 3).map((i) => `<i class="${i <= n ? "on" : ""}"></i>`).join("");
+  const dots = Array.from({ length: Math.max(n, wizSteps()) }, (_, i) => i + 1).map((i) => `<i class="${i <= n ? "on" : ""}"></i>`).join("");
   return `<div class="wiz-top"><span>Building from <b>${esc(SRC)}</b> · ${OWNED ? OWNED.size.toLocaleString() : 0} unique cards · <button type="button" data-wiz="file">Use a different file</button></span><span class="steps-dots" aria-label="Step ${n}">${dots}</span></div>`;
 }
 function choice(attrs, title, desc, pressed, extra) {
@@ -1370,6 +1435,12 @@ function renderWizard() {
       <div class="choices">${Q_VARIETY.map(([k, t, m, d]) => { const n = Math.round(players * 45 * m); const thin = pool && pool < n * 1.4;
         return choice(`data-variety="${k}"`, t, d + (thin ? " Your collection is thin for this size." : ""), state.answered && state.variety === k, `${n} cards`); }).join("")}</div>
       <div class="wiz-nav"><button class="btn" type="button" data-wiz="back">Back</button></div>`;
+  } else if (st === "q4") {
+    const owned = ownedCombos(); const ex = owned[0];
+    w.innerHTML = wizTop(4) + `<h1 class="wiz-q">Should your cube have combos?</h1>
+      <p class="wiz-sub">Your collection has ${owned.length} two- and three-card combo${owned.length > 1 ? "s" : ""} that go infinite or win on the spot, like ${esc(ex.cards.join(" + "))}.</p>
+      <div class="choices two">${Q_COMBO.map(([k, t, d]) => choice(`data-combos="${k}"`, t, d.replace("{n}", pickCombos(owned).length), state.answered && state.combos === k)).join("")}</div>
+      <div class="wiz-nav"><button class="btn" type="button" data-wiz="back">Back</button></div>`;
   } else {
     w.innerHTML = wizTop(3) + `<h1 class="wiz-q">How should your cube play?</h1>
       <p class="wiz-sub">Themes give each color pair a plan to draft toward. Balanced power holds back the very strongest cards so games stay close.</p>
@@ -1384,6 +1455,10 @@ function startWizard(fresh) {
 function finishWizard() {
   state.answered = true; state.step = "main"; state.view = "pile"; state.openTheme = "";
   saveSettings(); showWizard(false); rebuild(); window.scrollTo(0, 0);
+}
+function afterCombos() {
+  if (state.themeMode === "none") { finishWizard(); return; }
+  state.step = "themes"; saveSettings(); rebuild(); renderWizard(); window.scrollTo(0, 0);
 }
 function onWizardClick(e) {
   const t = e.target.closest("button"); if (!t) return;
@@ -1401,11 +1476,12 @@ function onWizardClick(e) {
   }
   if (t.dataset.style) {
     const [m, pw] = t.dataset.style.split("|"); state.themeMode = m; state.powerMode = pw;
-    if (m === "none") { finishWizard(); return; }
-    state.step = "themes"; saveSettings(); rebuild(); renderWizard(); window.scrollTo(0, 0); return;
+    if (ownedCombos().length) { state.step = "q4"; renderWizard(); return; }
+    afterCombos(); return;
   }
+  if (t.dataset.combos) { state.combos = t.dataset.combos; state.comboOut = []; afterCombos(); return; }
   const w = t.dataset.wiz;
-  if (w === "back") { state.step = { q2: "q1", q2b: "q2", q3: state.variety ? "q2b" : "q2", themes: "q3" }[state.step] || "q1"; renderWizard(); }
+  if (w === "back") { state.step = { q2: "q1", q2b: "q2", q3: state.variety ? "q2b" : "q2", q4: "q3", themes: ownedCombos().length ? "q4" : "q3" }[state.step] || "q1"; renderWizard(); }
   else if (w === "finish") finishWizard();
   else if (w === "cancel") { state.step = "main"; showWizard(false); rebuild(); }
   else if (w === "file") $("#file").click();
@@ -1579,13 +1655,14 @@ function closeZoom() { state.zoom = null; $("#zoom").hidden = true; }
 // ---------- undo ----------
 const UNDO = [];
 function remember(label) {
-  UNDO.push({ label, likes: JSON.parse(JSON.stringify(state.likes)), pins: [...state.pins], bans: [...state.bans], themeOut: JSON.parse(JSON.stringify(state.themeOut)), cubes: savedCubes() });
+  UNDO.push({ label, likes: JSON.parse(JSON.stringify(state.likes)), pins: [...state.pins], bans: [...state.bans], themeOut: JSON.parse(JSON.stringify(state.themeOut)), cubes: savedCubes(), comboOut: [...state.comboOut] });
   if (UNDO.length > 40) UNDO.shift();
 }
 function undo() {
   const u = UNDO.pop(); if (!u) { toast("Nothing to undo"); return; }
   state.likes = u.likes; state.pins = new Set(u.pins); state.bans = new Set(u.bans); state.themeOut = u.themeOut; syncOut();
   if (u.cubes) putCubes(u.cubes);
+  if (u.comboOut) state.comboOut = u.comboOut;
   saveSettings(); rerender(); toast("Undone: " + u.label);
 }
 // Rebuild and redraw whatever is open.
@@ -1611,9 +1688,30 @@ function renderAnswers() {
   const style = Q_STYLE.find((x) => x[0] === state.themeMode && x[1] === state.powerMode);
   const likes = Object.values(state.likes).reduce((a, o) => a + Object.values(o).filter((v) => v === 1).length, 0);
   $("#answers").innerHTML = `<div><span>Power</span>${esc(power || "")}</div><div><span>Drafters</span>${esc(size)} · ${state.size}</div><div><span>Style</span>${esc(style ? style[2] : "")}</div>` +
+    (state.combos ? `<div><span>Combos</span>${state.combos === "include" ? `${CUBE && CUBE.combos ? CUBE.combos.live.length : 0} included` : "Kept out"}</div>` : "") +
     (state.themeMode === "themed" ? `<div><span>Liked themes</span>${likes}</div>` : "");
 }
 
+function comboLine(k, btn) {
+  return `<li class="combo"><span class="pieces">${k.cards.map((n) => `<button type="button" class="lname" data-zoom="${esc(n)}"><span>${esc(n)}</span></button>`).join('<span class="plus">+</span>')}</span><span class="why">${esc(k.result.replace(/ ETB\b/g, " enter triggers").replace(/ LTB\b/g, " leave triggers"))}</span>${btn || ""}</li>`;
+}
+function comboBox() {
+  const cb = CUBE.combos; if (!cb || !cb.owned.length) return "";
+  const out = cb.owned.filter((k) => state.comboOut.includes(k.key));
+  let body;
+  if (state.combos === "include") {
+    body = `<p class="why">Your ${cb.chosen.length} best-known combos are in with every piece (up to ${comboCap()} for a ${state.size}-card cube, each with different pieces). To add another, star its pieces.</p>
+      <ul class="combos">${cb.live.map((k) => comboLine(k, cb.chosen.includes(k) ? `<button class="btn small" type="button" data-comboout="${esc(k.key)}">Take out</button>` : `<span class="tag">${k.cards.every((n) => state.pins.has(n)) ? "starred" : "picked on its own"}</span>`)).join("")}</ul>` +
+      (out.length ? `<h4>Taken out</h4><ul class="combos">${out.map((k) => comboLine(k, `<button class="btn small" type="button" data-comboin="${esc(k.key)}">Put back</button>`)).join("")}</ul>` : "");
+  } else if (state.combos === "none") {
+    body = `<p class="why">${cb.blocked.length ? `${cb.blocked.length} combo${cb.blocked.length > 1 ? "s" : ""} would have come together, so one piece of each was left out:` : "None of your combos came together in this build."}</p>
+      ${cb.blocked.length ? `<ul class="combos">${cb.blocked.map(({ name, combo }) => comboLine(combo, `<span class="tag">left out ${esc(name)}</span>`)).join("")}</ul>` : ""}
+      ${cb.live.length ? `<p class="why">Kept because you starred every piece:</p><ul class="combos">${cb.live.map((k) => comboLine(k)).join("")}</ul>` : ""}`;
+  } else {
+    body = `<p class="why">${cb.live.length} complete combo${cb.live.length === 1 ? " is" : "s are"} in this build. Choose how to handle combos with "Change answers".</p>${cb.live.length ? `<ul class="combos">${cb.live.map((k) => comboLine(k)).join("")}</ul>` : ""}`;
+  }
+  return `<div class="box"><h3>Combos</h3>${body}<p class="hint">Combos from <a href="https://commanderspellbook.com" target="_blank" rel="noopener">Commander Spellbook</a>: two- and three-card combos that go infinite or win the game.</p></div>`;
+}
 function renderBalance() {
   const rows = PILES.map((p) => {
     const s = pileStats(CUBE.piles[p].picked); const L = p === "L";
@@ -1634,6 +1732,7 @@ function renderBalance() {
         <p class="why">Cards in the build that no reference cube plays. They usually got in to fill a gap. Lucky Paper's advice is to replace weak outliers first, since they rarely matter in a game.</p>
         ${weak.length ? `<ul class="cards">${weak.map((c) => cardRow(c)).join("")}</ul>` : `<p class="empty">No weak outliers.</p>`}</div>
     </div>
+    ${comboBox()}
     <p class="why" style="max-width:65ch">Card strength comes from how many popular ${state.power} cubes on CubeCobra run the card, how well it won in its own set's drafts on 17lands, and EDHREC popularity as a tiebreaker. Each color aims for a set creature share, a removal count and a curve that peaks at two mana. Blue counts counterspells as removal.</p>
   </div>`;
 }
@@ -1960,7 +2059,7 @@ function syncControls() {
   $("#lands").max = Math.round(state.size * 0.25); $("#perColor").max = Math.floor(state.size / 6);
 }
 function saveSettings() {
-  store("settings", { size: state.size, perColor: state.perColor, perPair: state.perPair, lands: state.lands, noCmdr: state.noCmdr, tri: state.tri, power: state.power, keepCube: state.keepCube, cubeMode: state.cubeMode,
+  store("settings", { size: state.size, perColor: state.perColor, perPair: state.perPair, lands: state.lands, noCmdr: state.noCmdr, tri: state.tri, power: state.power, keepCube: state.keepCube, cubeMode: state.cubeMode, combos: state.combos, comboOut: state.comboOut,
     themeMode: state.themeMode, powerMode: state.powerMode, drafters: state.drafters, variety: state.variety, themeOut: state.themeOut, answered: state.answered, likes: state.likes });
   store("pins", [...state.pins]); store("bans", [...state.bans]);
 }
@@ -2059,6 +2158,8 @@ function wire() {
     if (id === "clearPull") { store("pulled", []); renderPull(); }
     const g = e.target.closest("[data-goto]"); if (g) { state.view = g.dataset.goto; renderAll(); return; }
     if (onCompareClick(e)) return;
+    const co = e.target.closest("[data-comboout]"), ci = e.target.closest("[data-comboin]");
+    if (co || ci) { remember((co ? "took out " : "put back ") + (co || ci).dataset[co ? "comboout" : "comboin"]); state.comboOut = co ? [...state.comboOut, co.dataset.comboout] : state.comboOut.filter((k) => k !== ci.dataset.comboin); saveSettings(); rebuild(); return; }
   });
   $("#findResults").addEventListener("click", clickCards);
   $("#binders").addEventListener("change", (e) => {
@@ -2123,7 +2224,7 @@ async function start() {
   state.pins = new Set(recall("pins", [])); state.bans = new Set(recall("bans", []));
   $("#noCmdr").checked = state.noCmdr; $("#tri").checked = state.tri;
   syncControls(); wire();
-  try { await Promise.all([loadDB(), loadImages()]); }
+  try { await Promise.all([loadDB(), loadImages(), loadCombos()]); }
   catch (e) { $("#loading").textContent = "Card data didn't load. Refresh the page to try again."; return; }
   $("#loading").hidden = true;
   let saved = null, label = null;
