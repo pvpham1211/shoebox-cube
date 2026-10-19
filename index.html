@@ -4,7 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name='impact-site-verification' value='c44c1649-660d-48bd-92b7-f8a31481cbf6'>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect x=%224%22 y=%229%22 width=%2224%22 height=%2218%22 rx=%223%22 fill=%22%233b3a8f%22/%3E%3Crect x=%229%22 y=%224%22 width=%2214%22 height=%229%22 rx=%221.5%22 fill=%22%23d8cfa0%22/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="logo.svg">
+<link rel="apple-touch-icon" href="logo-180.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Shoebox Cube">
+<meta property="og:description" content="Turn the Magic cards you already own into a balanced draft cube. Free, no sign-up.">
+<meta property="og:url" content="https://pvpham1211.github.io/shoebox-cube/">
+<meta property="og:image" content="https://pvpham1211.github.io/shoebox-cube/social-preview.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <title>Shoebox Cube</title>
 <meta name="description" content="Build a balanced, singleton draft cube from the cards you already own.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57,8 +65,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .wrap { max-width: 1380px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px; }
-header.top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; padding-bottom: 16px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; padding-bottom: 16px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
 header.top h1 { font-family: var(--f-display); font-weight: 400; font-size: 30px; margin: 0; letter-spacing: -0.01em; }
+header.top h1 { display: flex; align-items: center; gap: 10px; align-self: center; }
+header.top .logo { width: 46px; height: 46px; flex: none; margin: -6px 0 -6px -4px; }
 header.top p { margin: 0; color: var(--muted); max-width: 60ch; }
 
 .layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 24px; align-items: start; }
@@ -373,7 +383,25 @@ footer { margin-top: 36px; padding-top: 14px; border-top: 1px solid var(--line);
 
 <div class="wrap">
   <header class="top">
-    <h1>Shoebox Cube</h1>
+    <h1><svg xmlns="http://www.w3.org/2000/svg" viewBox="36 70 440 440" class="logo" aria-hidden="true" focusable="false"><polygon points="103.6,256.0 256.0,344.0 256.0,494.0 103.6,406.0" fill="#c68c5a" stroke="#1d1c24" stroke-width="7" stroke-linejoin="round"/>
+<polygon points="256.0,344.0 408.4,256.0 408.4,406.0 256.0,494.0" fill="#a56d43" stroke="#1d1c24" stroke-width="7" stroke-linejoin="round"/>
+<polygon points="103.6,256.0 256.0,168.0 408.4,256.0 256.0,344.0" fill="#e0b484" stroke="#1d1c24" stroke-width="7" stroke-linejoin="round"/>
+<polygon points="131.0,256.0 256.0,183.8 381.0,256.0 256.0,328.2" fill="#3d2a1f" stroke="#1d1c24" stroke-width="7" stroke-linejoin="round"/>
+<polygon points="137.1,320.4 222.5,369.6 222.5,432.6 137.1,383.4" fill="#f3f2ee" stroke="#1d1c24" stroke-width="4.9" stroke-linejoin="round"/>
+<polygon points="149.3,342.4 210.3,377.6 210.3,391.1 149.3,355.9" fill="#3b3a8f"/>
+<polygon points="149.3,367.9 188.9,390.8 188.9,399.8 149.3,376.9" fill="#1d1c24" opacity=".55"/>
+<clipPath id="logo-open"><polygon points="131.0,256.0 131.0,-400.0 381.0,-400.0 381.0,256.0 256.0,328.2"/></clipPath><g clip-path="url(#logo-open)">
+<polygon points="241.4,284.3 333.9,337.7 333.9,139.7 241.4,86.3" fill="#3f8650" stroke="#1d1c24" stroke-width="7" stroke-linejoin="round"/>
+<polygon points="249.2,100.8 326.1,145.2 326.1,175.2 249.2,130.8" fill="#ffffff" opacity=".28"/>
+<polygon points="208.0,289.5 300.5,342.9 300.5,158.9 208.0,105.5" fill="#c34a33" stroke="#1d1c24" stroke-width="7" stroke-linejoin="round"/>
+<polygon points="215.8,120.0 292.7,164.4 292.7,194.4 215.8,150.0" fill="#ffffff" opacity=".28"/>
+<polygon points="202.4,310.8 294.9,364.2 294.9,194.2 202.4,140.8" fill="#4b4250" stroke="#1d1c24" stroke-width="7" stroke-linejoin="round"/>
+<polygon points="210.2,155.3 287.1,199.7 287.1,229.7 210.2,185.3" fill="#ffffff" opacity=".28"/>
+<polygon points="169.0,316.1 261.5,369.5 261.5,213.5 169.0,160.1" fill="#3f78b8" stroke="#1d1c24" stroke-width="7" stroke-linejoin="round"/>
+<polygon points="176.8,174.6 253.7,219.0 253.7,249.0 176.8,204.6" fill="#ffffff" opacity=".28"/>
+<polygon points="154.7,332.3 247.2,385.7 247.2,243.7 154.7,190.3" fill="#d8cc9f" stroke="#1d1c24" stroke-width="7" stroke-linejoin="round"/>
+<polygon points="162.5,204.8 239.4,249.2 239.4,279.2 162.5,234.8" fill="#ffffff" opacity=".28"/>
+</g></svg>Shoebox Cube</h1>
     <p>Turn the cards you already own into a balanced, singleton draft cube built around the themes your collection actually has.</p>
   </header>
 
