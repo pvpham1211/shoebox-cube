@@ -13,8 +13,10 @@
 <meta property="og:image" content="https://shoeboxcube.com/social-preview.png">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<title>Shoebox Cube</title>
-<meta name="description" content="Build a balanced, singleton draft cube from the cards you already own.">
+<title>Shoebox Cube: Build a Magic Cube From Your Collection</title>
+<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "WebApplication", "name": "Shoebox Cube", "url": "https://shoeboxcube.com/", "applicationCategory": "GameApplication", "operatingSystem": "Any (web browser)", "description": "Free tool that turns the Magic: The Gathering cards you already own into a balanced draft cube. Works with ManaBox, Moxfield and Deckbox, compares against your CubeCobra cube, and runs in your browser.", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "image": "https://shoeboxcube.com/social-preview.png"}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How do I build a Magic cube from my own collection?", "acceptedAnswer": {"@type": "Answer", "text": "Export your collection from ManaBox, Moxfield or Deckbox, or paste a plain list of card names, and drop it on this page. Answer four or five questions about power level, how many people draft, themes and combos, and Shoebox Cube builds a singleton cube from cards you own, balanced by color, curve, creatures and removal."}}, {"@type": "Question", "name": "Which collection apps does it work with?", "acceptedAnswer": {"@type": "Answer", "text": "ManaBox, Moxfield and Deckbox CSV exports, any spreadsheet with a card name column, or a plain list with one card per line. ManaBox binder names are read too, so sell and trade binders are left out and the pull list can tell you which binder each card is in."}}, {"@type": "Question", "name": "Can it update a cube I already have?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. On the Compare tab, load your current cube from a CubeCobra link, a CubeCobra export, a pasted list, or the binders it lives in. Choose to start from that cube and Shoebox Cube keeps its cards and layout and only suggests swaps where you own something clearly better, which is handy after opening a new set."}}, {"@type": "Question", "name": "How does it decide which cards are good?", "acceptedAnswer": {"@type": "Answer", "text": "Mostly by how often popular cubes on CubeCobra at your power level play a card, plus 17lands draft win rates for recent sets and EDHREC popularity as a tiebreaker. Balanced power holds back the very strongest cards so games stay close."}}, {"@type": "Question", "name": "Does it work for pauper or casual cubes?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Pauper uses commons only, casual leaves out fast mana and other draft-warping cards, and powerful uses your strongest cards. Sizes run from 180 cards for 2 to 4 players up to 720 for big groups."}}, {"@type": "Question", "name": "Can it add or avoid combos?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. If your collection holds complete two- or three-card combos, like Splinter Twin and Deceiver Exarch, you choose whether the cube includes them with every piece or keeps them apart. Combo data comes from Commander Spellbook."}}, {"@type": "Question", "name": "Is my collection uploaded anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. Everything runs in your browser and your collection stays on your device. There is no account to make."}}, {"@type": "Question", "name": "Is Shoebox Cube free?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, free to use with no sign-up. It's a fan-made tool and isn't affiliated with Wizards of the Coast."}}]}]</script>
+<meta name="description" content="Free tool that turns the Magic: The Gathering cards you already own into a balanced draft cube. Works with ManaBox, Moxfield and Deckbox, compares against your CubeCobra cube, and runs in your browser.">
+<link rel="canonical" href="https://shoeboxcube.com/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
@@ -355,7 +357,10 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
 .tiles.small .tx { right: 4px; width: 20px; height: 20px; font-size: 13px; }
 .tile .tx:hover { background: var(--bad); color: #fff; }
 .zoom-wrap { z-index: 40; }
-.zoom { width: min(820px, 100%); position: relative; }
+.zoom { width: min(820px, 100%)
+</head>
+<body>
+; position: relative; }
 .zoom > .panel-close { position: absolute; top: 8px; right: 8px; }
 .zoom-grid { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 20px; align-items: start; }
 @media (max-width: 640px) { .zoom-grid { grid-template-columns: minmax(0, 1fr); } .zoom-img { max-width: 260px; margin: 0 auto; } }
@@ -379,15 +384,20 @@ ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
 .tile .badge { position: absolute; top: 4px; left: 4px; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; background: var(--accent); color: var(--accent-ink); border-radius: 3px; padding: 0 4px; }
 .tiles.small .badge { display: none; }
 
+.about { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line); max-width: 760px; }
+.about h2 { font-family: var(--f-display); font-weight: 400; font-size: 22px; margin: 0 0 10px; }
+.about h3 { font-size: 15px; margin: 18px 0 6px; }
+.about .how { margin: 0; padding-left: 20px; display: grid; gap: 4px; color: var(--muted); }
+.about .how b { color: var(--ink); }
+.about details { border-bottom: 1px solid var(--line); padding: 8px 0; }
+.about summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+.about details p { margin: 6px 0 2px; color: var(--muted); max-width: 70ch; }
 footer { margin-top: 36px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); display: grid; gap: 4px; }
 .loading { padding: 40px 0; color: var(--muted); }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: var(--r); font-size: 14px; z-index: 60; display: flex; gap: 12px; align-items: center; max-width: calc(100vw - 32px); }
 .toast button { border: 0; background: none; color: var(--bg); font-weight: 700; text-decoration: underline; cursor: pointer; padding: 2px 4px; font-size: 14px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
-</head>
-<body>
-
 
 <div class="wrap">
   <header class="top">
@@ -492,13 +502,31 @@ footer { margin-top: 36px; padding-top: 14px; border-top: 1px solid var(--line);
     </main>
   </div>
 
+  <section class="about" aria-labelledby="aboutTitle">
+    <h2 id="aboutTitle">Build a Magic cube from your collection</h2>
+    <ol class="how">
+      <li><b>Bring your cards.</b> Drop a ManaBox, Moxfield or Deckbox export, or paste a list.</li>
+      <li><b>Answer a few questions.</b> Power level, group size, themes and combos.</li>
+      <li><b>Get your cube.</b> A balanced list with a pull list by binder, swaps for the cube you already have, and a CubeCobra export.</li>
+    </ol>
+    <h3>Questions</h3>
+    <details><summary>How do I build a Magic cube from my own collection?</summary><p>Export your collection from ManaBox, Moxfield or Deckbox, or paste a plain list of card names, and drop it on this page. Answer four or five questions about power level, how many people draft, themes and combos, and Shoebox Cube builds a singleton cube from cards you own, balanced by color, curve, creatures and removal.</p></details>
+    <details><summary>Which collection apps does it work with?</summary><p>ManaBox, Moxfield and Deckbox CSV exports, any spreadsheet with a card name column, or a plain list with one card per line. ManaBox binder names are read too, so sell and trade binders are left out and the pull list can tell you which binder each card is in.</p></details>
+    <details><summary>Can it update a cube I already have?</summary><p>Yes. On the Compare tab, load your current cube from a CubeCobra link, a CubeCobra export, a pasted list, or the binders it lives in. Choose to start from that cube and Shoebox Cube keeps its cards and layout and only suggests swaps where you own something clearly better, which is handy after opening a new set.</p></details>
+    <details><summary>How does it decide which cards are good?</summary><p>Mostly by how often popular cubes on CubeCobra at your power level play a card, plus 17lands draft win rates for recent sets and EDHREC popularity as a tiebreaker. Balanced power holds back the very strongest cards so games stay close.</p></details>
+    <details><summary>Does it work for pauper or casual cubes?</summary><p>Yes. Pauper uses commons only, casual leaves out fast mana and other draft-warping cards, and powerful uses your strongest cards. Sizes run from 180 cards for 2 to 4 players up to 720 for big groups.</p></details>
+    <details><summary>Can it add or avoid combos?</summary><p>Yes. If your collection holds complete two- or three-card combos, like Splinter Twin and Deceiver Exarch, you choose whether the cube includes them with every piece or keeps them apart. Combo data comes from Commander Spellbook.</p></details>
+    <details><summary>Is my collection uploaded anywhere?</summary><p>No. Everything runs in your browser and your collection stays on your device. There is no account to make.</p></details>
+    <details><summary>Is Shoebox Cube free?</summary><p>Yes, free to use with no sign-up. It's a fan-made tool and isn't affiliated with Wizards of the Coast.</p></details>
+  </section>
+
   <footer>
     <div>Shoebox Cube is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.</div>
     <div>Card data from <a href="https://scryfall.com" target="_blank" rel="noopener">Scryfall</a>, which does not endorse this tool. Card popularity comes from public cube lists on <a href="https://cubecobra.com" target="_blank" rel="noopener">CubeCobra</a>. Draft win rates from <a href="https://www.17lands.com/public_datasets" target="_blank" rel="noopener">17lands</a> public datasets (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="license noopener">CC BY 4.0</a>), converted by this site into per-set rankings. Combos from <a href="https://commanderspellbook.com" target="_blank" rel="noopener">Commander Spellbook</a>. Building approach follows Lucky Paper's <a href="https://luckypaper.co/articles/building-a-cube-from-a-collection/" target="_blank" rel="noopener">Building a Cube from a Collection</a>. <span id="built"></span></div>
     <div>Your collection never leaves your browser. Some buy links are affiliate links, and purchases through them can earn this site a commission at no cost to you.</div>
     <div>Shoebox Cube is free. If it saved you an evening of sorting cards, you can <a href="https://ko-fi.com/shoeboxcube" target="_blank" rel="noopener">support it on Ko-fi</a>.</div>
     <div>© 2026 Shoebox Cube. All rights reserved. The site's code and design may not be copied or redistributed without permission.</div>
-    <div>Visit counts are anonymous, with no tracking, and your collection never leaves your browser.</div>
+    <div>Visit counts are anonymous, with no tracking.</div>
   </footer>
 </div>
 <div class="toast" id="toast" hidden></div>
@@ -2092,6 +2120,7 @@ function renderExport() {
         <li>Copy the list below.</li>
         <li>On <a href="https://cubecobra.com" target="_blank" rel="noopener">CubeCobra</a>, create a cube (or open yours) and choose <b>List → Add or remove → Bulk upload</b>, or <b>Replace with bulk upload</b> for an existing cube.</li>
         <li>Use <b>Playtest → Start a draft</b> to draft against bots before you sleeve anything.</li>
+        <li>Optional: add a line to your cube's description so people who draft it know how it was built. <button class="linkbtn" type="button" id="copyCredit">Copy the line</button></li>
         <li>For feedback from other designers, share the CubeCobra link in the MTG Cube Talk Discord (linked from <a href="https://luckypaper.co/podcast/099-building-a-cube-from-a-collection/" target="_blank" rel="noopener">Lucky Paper's show notes</a>).</li>
       </ol>
       <div class="row"><button class="btn primary" type="button" id="copyList2">Copy ${CUBE.total} card names</button><button class="btn" type="button" id="copyCSV">Copy as CSV</button></div>
@@ -2228,6 +2257,7 @@ function wire() {
     const id = e.target.id;
     if (id === "copyList2") copy(cubeNames().join("\n"), "Copied " + CUBE.total + " names");
     if (id === "copyCSV") copy(cubeCSV(), "Copied CSV");
+    if (id === "copyCredit") copy("Built from my own collection with Shoebox Cube: https://shoeboxcube.com", "Copied. Paste it into your cube's description on CubeCobra.");
     if (id === "deal") { dealPack(); renderExport(); }
     if (id === "copyPull") copy(pullText(), "Copied checklist");
     const pb = e.target.closest("[data-pullby]"); if (pb) { state.pullBy = pb.dataset.pullby; renderPull(); }
